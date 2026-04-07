@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -10,46 +10,49 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Colors, { Shadows } from '@/constants/Colors';
-import { useAuth } from '@/context/AuthContext';
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Colors, { Shadows } from "@/constants/Colors";
+import { useAuth } from "@/context/AuthContext";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Mohon isi email dan password');
+      Alert.alert("Error", "Mohon isi email dan password");
       return;
     }
     setLoading(true);
     try {
       await login(email.trim(), password);
-      router.replace('/(tabs)/marketplace');
+      router.replace("/(tabs)/marketplace");
     } catch (error: any) {
       Alert.alert(
-        'Login Gagal',
-        error?.response?.data?.message || 'Email atau password salah',
+        "Login Gagal",
+        error?.response?.data?.message || "Email atau password salah",
       );
     } finally {
       setLoading(false);
     }
   };
 
+  console.log("email ", email);
+  console.log("password ", password);
+
   return (
     <KeyboardAvoidingView
       style={styles.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -58,7 +61,11 @@ export default function LoginScreen() {
       >
         {/* Top Gradient */}
         <LinearGradient
-          colors={[Colors.gradientStart, Colors.gradientMiddle, Colors.gradientEnd]}
+          colors={[
+            Colors.gradientStart,
+            Colors.gradientMiddle,
+            Colors.gradientEnd,
+          ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.topSection, { paddingTop: insets.top + 20 }]}
@@ -94,7 +101,11 @@ export default function LoginScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Email</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="mail-outline" size={20} color={Colors.textTertiary} />
+                <Ionicons
+                  name="mail-outline"
+                  size={20}
+                  color={Colors.textTertiary}
+                />
                 <TextInput
                   style={styles.input}
                   value={email}
@@ -112,7 +123,11 @@ export default function LoginScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Password</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={20} color={Colors.textTertiary} />
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color={Colors.textTertiary}
+                />
                 <TextInput
                   style={styles.input}
                   value={password}
@@ -122,9 +137,11 @@ export default function LoginScreen() {
                   secureTextEntry={!showPassword}
                   autoComplete="password"
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                >
                   <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
                     size={20}
                     color={Colors.textTertiary}
                   />
@@ -152,7 +169,11 @@ export default function LoginScreen() {
                   <ActivityIndicator color={Colors.white} />
                 ) : (
                   <>
-                    <Ionicons name="log-in-outline" size={22} color={Colors.white} />
+                    <Ionicons
+                      name="log-in-outline"
+                      size={22}
+                      color={Colors.white}
+                    />
                     <Text style={styles.loginBtnText}>Masuk</Text>
                   </>
                 )}
@@ -169,10 +190,13 @@ export default function LoginScreen() {
             {/* Social Login */}
             <View style={styles.socialRow}>
               {[
-                { icon: 'logo-google' as const, color: '#DB4437' },
-                { icon: 'logo-apple' as const, color: '#000000' },
+                { icon: "logo-google" as const, color: "#DB4437" },
+                { icon: "logo-apple" as const, color: "#000000" },
               ].map((social, i) => (
-                <TouchableOpacity key={i} style={[styles.socialBtn, Shadows.small]}>
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.socialBtn, Shadows.small]}
+                >
                   <Ionicons name={social.icon} size={24} color={social.color} />
                 </TouchableOpacity>
               ))}
@@ -182,7 +206,7 @@ export default function LoginScreen() {
           {/* Register Link */}
           <View style={styles.registerRow}>
             <Text style={styles.registerText}>Belum punya akun? </Text>
-            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+            <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
               <Text style={styles.registerLink}>Daftar Sekarang</Text>
             </TouchableOpacity>
           </View>
@@ -201,37 +225,37 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,
-    alignItems: 'center',
-    overflow: 'hidden',
-    position: 'relative',
+    alignItems: "center",
+    overflow: "hidden",
+    position: "relative",
   },
   decorCircle1: {
-    position: 'absolute',
+    position: "absolute",
     top: -40,
     right: -40,
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
   decorCircle2: {
-    position: 'absolute',
+    position: "absolute",
     bottom: -20,
     left: -30,
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   backBtn: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     marginLeft: 16,
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 16,
   },
   logoContainer: {
@@ -242,20 +266,20 @@ const styles = StyleSheet.create({
     height: 68,
     borderRadius: 24,
     backgroundColor: Colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     ...Shadows.medium,
   },
   brandTitle: {
     fontSize: 30,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Colors.white,
     letterSpacing: -0.5,
   },
   brandSubtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: '500',
+    color: "rgba(255,255,255,0.7)",
+    fontWeight: "500",
     marginTop: 4,
   },
   formSection: {
@@ -269,13 +293,13 @@ const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Colors.text,
   },
   formSubtitle: {
     fontSize: 14,
     color: Colors.textTertiary,
-    fontWeight: '500',
+    fontWeight: "500",
     marginTop: 4,
     marginBottom: 24,
   },
@@ -284,13 +308,13 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Colors.textSecondary,
     marginBottom: 8,
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     backgroundColor: Colors.backgroundSecondary,
     borderRadius: 16,
@@ -300,34 +324,34 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text,
   },
   forgotBtn: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     marginBottom: 20,
   },
   forgotText: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Colors.primary,
   },
   loginBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 10,
     height: 56,
     borderRadius: 18,
   },
   loginBtnText: {
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Colors.white,
   },
   divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     marginVertical: 22,
   },
@@ -338,12 +362,12 @@ const styles = StyleSheet.create({
   },
   dividerText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.textTertiary,
   },
   socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 16,
   },
   socialBtn: {
@@ -351,24 +375,24 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 18,
     backgroundColor: Colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: Colors.border,
   },
   registerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: 24,
   },
   registerText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: Colors.textSecondary,
   },
   registerLink: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Colors.primary,
   },
 });

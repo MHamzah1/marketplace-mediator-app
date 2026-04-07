@@ -12,7 +12,7 @@ import {
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors, { Shadows } from '@/constants/Colors';
 
@@ -71,7 +71,6 @@ const DEMO_CAR = {
 };
 
 export default function ListingDetailScreen() {
-  const { id } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
