@@ -1,10 +1,56 @@
 /**
  * App configuration constants
  */
+import Constants from "expo-constants";
 import type { InspectionPackage } from "@/types";
 
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL || "http://localhost:8080/api";
+const DEFAULT_API_BASE_URL = "http://localhost:8080/api";
+
+function getConfiguredApiBaseUrl() {
+  return (
+    process.env.EXPO_PUBLIC_API_URL ??
+    process.env.API_BASE_URL ??
+    DEFAULT_API_BASE_URL
+  ).trim();
+}
+
+function getExpoDevHost() {
+  const expoGoConfig = Constants.expoGoConfig as
+    | { debuggerHost?: string }
+    | null;
+  const hostUri =
+    Constants.expoConfig?.hostUri ?? expoGoConfig?.debuggerHost ?? null;
+
+  if (!hostUri) {
+    return null;
+  }
+
+  return hostUri.split(":")[0] || null;
+}
+
+function resolveApiBaseUrl() {
+  const configuredUrl = getConfiguredApiBaseUrl();
+
+  try {
+    const parsedUrl = new URL(configuredUrl);
+    const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(
+      parsedUrl.hostname,
+    );
+
+    if (__DEV__ && isLocalhost) {
+      const devHost = getExpoDevHost();
+      if (devHost) {
+        parsedUrl.hostname = devHost;
+      }
+    }
+
+    return parsedUrl.toString().replace(/\/$/, "");
+  } catch {
+    return configuredUrl.replace(/\/$/, "");
+  }
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export const APP_CONFIG = {
   name: "Mediator",
@@ -14,7 +60,9 @@ export const APP_CONFIG = {
   supportPhone: "+62 812-3456-7890",
 };
 
-console.log("API_BASE_URL: ", API_BASE_URL);
+if (__DEV__) {
+  console.log("API_BASE_URL:", API_BASE_URL);
+}
 
 export const PAGINATION = {
   defaultPageSize: 10,

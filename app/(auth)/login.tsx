@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors, { Shadows } from "@/constants/Colors";
 import { useAuth } from "@/context/AuthContext";
+import { API_BASE_URL } from "@/constants/Config";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -37,17 +38,23 @@ export default function LoginScreen() {
       await login(email.trim(), password);
       router.replace("/(tabs)/marketplace");
     } catch (error: any) {
+      console.log("[LOGIN_ERROR]", {
+        apiBaseUrl: API_BASE_URL,
+        status: error?.response?.status,
+        message: error?.response?.data?.message || error?.message,
+      });
+
       Alert.alert(
         "Login Gagal",
-        error?.response?.data?.message || "Email atau password salah",
+        error?.response?.data?.message ||
+          (error?.request
+            ? `Tidak dapat terhubung ke server ${API_BASE_URL}. Jika memakai Expo Go di HP, gunakan IP laptop, bukan localhost.`
+            : "Email atau password salah"),
       );
     } finally {
       setLoading(false);
     }
   };
-
-  console.log("email ", email);
-  console.log("password ", password);
 
   return (
     <KeyboardAvoidingView

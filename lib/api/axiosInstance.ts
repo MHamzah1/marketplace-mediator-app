@@ -15,12 +15,18 @@ axiosInstance.interceptors.request.use(
   async (config) => {
     try {
       const token = await SecureStore.getItemAsync('accessToken');
+      config.headers = config.headers ?? {};
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch {
       // SecureStore not available (web), fallback silently
     }
+
+    if (__DEV__) {
+      console.log('[API]', (config.method || 'GET').toUpperCase(), `${config.baseURL}${config.url}`);
+    }
+
     return config;
   },
   (error) => Promise.reject(error),
@@ -30,6 +36,14 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (__DEV__) {
+      console.log('[API_ERROR]', {
+        url: `${error.config?.baseURL || ''}${error.config?.url || ''}`,
+        status: error.response?.status,
+        message: error.response?.data?.message || error.message,
+      });
+    }
+
     if (error.response?.status === 401) {
       try {
         await SecureStore.deleteItemAsync('accessToken');
