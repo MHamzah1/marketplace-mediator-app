@@ -49,7 +49,7 @@ export default function RegisterScreen() {
         fullName: fullName.trim(),
         email: email.trim(),
         password,
-        phone: phone.trim() || undefined,
+        phoneNumber: phone.trim() || undefined,
       });
       Alert.alert('Berhasil', 'Akun berhasil dibuat! Silakan masuk.', [
         { text: 'OK', onPress: () => router.replace('/(auth)/login') },

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,50 +8,172 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors, { Shadows } from '@/constants/Colors';
 import GradientHeader from '@/components/ui/GradientHeader';
-import { LOAN_TERMS } from '@/constants/Config';
+import {
+  getCalculatorOptions,
+  getModelsByBrand,
+  getVariantsByModel,
+  getYearsByVariant,
+  calculatePrice,
+} from '@/lib/api/calculatorService';
+import { formatRupiahFull } from '@/lib/utils';
+import type { CalculationResult, Variant } from '@/types';
 
-function formatRupiah(num: number): string {
-  return 'Rp ' + num.toLocaleString('id-ID');
-}
-
-function parseNumber(text: string): number {
-  return Number(text.replace(/[^0-9]/g, '')) || 0;
+interface SelectOption {
+  id: string;
+  label: string;
 }
 
 export default function CalculatorScreen() {
   const insets = useSafeAreaInsets();
-  const [carPrice, setCarPrice] = useState('300000000');
-  const [dpPercent, setDpPercent] = useState(20);
-  const [loanTerm, setLoanTerm] = useState(48);
-  const [interestRate, setInterestRate] = useState('6.5');
-  const [showResult, setShowResult] = useState(false);
 
-  const result = useMemo(() => {
-    const price = parseNumber(carPrice);
-    const dp = price * (dpPercent / 100);
-    const loan = price - dp;
-    const rate = parseFloat(interestRate) || 0;
-    const totalInterest = loan * (rate / 100) * (loanTerm / 12);
-    const totalPayment = loan + totalInterest;
-    const monthly = totalPayment / loanTerm;
+  // Options from API
+  const [brandOptions, setBrandOptions] = useState<SelectOption[]>([]);
+  const [modelOptions, setModelOptions] = useState<SelectOption[]>([]);
+  const [variantOptions, setVariantOptions] = useState<SelectOption[]>([]);
+  const [yearOptions, setYearOptions] = useState<number[]>([]);
 
-    return {
-      carPrice: price,
-      downPayment: dp,
-      loanAmount: loan,
-      totalInterest,
-      totalPayment,
-      monthlyPayment: monthly,
-    };
-  }, [carPrice, dpPercent, loanTerm, interestRate]);
+  // Selected values
+  const [selectedBrand, setSelectedBrand] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [selectedVariant, setSelectedVariant] = useState<string>('');
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
-  const dpOptions = [10, 15, 20, 25, 30, 35];
+  // Condition inputs
+  const [transmission, setTransmission] = useState('AT');
+  const [ownership, setOwnership] = useState('first');
+  const [color, setColor] = useState('common');
+
+  // State
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [loadingVariants, setLoadingVariants] = useState(false);
+  const [loadingYears, setLoadingYears] = useState(false);
+  const [calculating, setCalculating] = useState(false);
+  const [result, setResult] = useState<CalculationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load brand options
+  useEffect(() => {
+    getCalculatorOptions()
+      .then((data) => {
+        setBrandOptions(
+          (data.brands || []).map((b) => ({ id: b.id, label: b.name })),
+        );
+      })
+      .catch(() => {})
+      .finally(() => setLoadingOptions(false));
+  }, []);
+
+  // Load models when brand changes
+  useEffect(() => {
+    if (!selectedBrand) {
+      setModelOptions([]);
+      setSelectedModel('');
+      return;
+    }
+    setLoadingModels(true);
+    setSelectedModel('');
+    setVariantOptions([]);
+    setSelectedVariant('');
+    setYearOptions([]);
+    setSelectedYear(null);
+    setResult(null);
+    getModelsByBrand(selectedBrand)
+      .then((data) => {
+        setModelOptions(
+          (data.models || []).map((m) => ({ id: m.id, label: m.modelName })),
+        );
+      })
+      .catch(() => {})
+      .finally(() => setLoadingModels(false));
+  }, [selectedBrand]);
+
+  // Load variants when model changes
+  useEffect(() => {
+    if (!selectedModel) {
+      setVariantOptions([]);
+      setSelectedVariant('');
+      return;
+    }
+    setLoadingVariants(true);
+    setSelectedVariant('');
+    setYearOptions([]);
+    setSelectedYear(null);
+    setResult(null);
+    getVariantsByModel(selectedModel)
+      .then((data: Variant[]) => {
+        setVariantOptions(
+          (data || []).map((v) => ({ id: v.id, label: v.name })),
+        );
+      })
+      .catch(() => {})
+      .finally(() => setLoadingVariants(false));
+  }, [selectedModel]);
+
+  // Load years when variant changes
+  useEffect(() => {
+    if (!selectedVariant) {
+      setYearOptions([]);
+      setSelectedYear(null);
+      return;
+    }
+    setLoadingYears(true);
+    setSelectedYear(null);
+    setResult(null);
+    getYearsByVariant(selectedVariant)
+      .then((data) => {
+        setYearOptions(data.years || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingYears(false));
+  }, [selectedVariant]);
+
+  const canCalculate = selectedVariant && selectedYear;
+
+  const handleCalculate = async () => {
+    if (!canCalculate) return;
+    try {
+      setCalculating(true);
+      setError(null);
+      const res = await calculatePrice({
+        variantId: selectedVariant,
+        year: selectedYear!,
+        transmissionCode: transmission,
+        ownershipCode: ownership,
+        colorCode: color,
+      });
+      setResult(res);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal menghitung harga';
+      setError(msg);
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  const transmissionOptions = [
+    { code: 'AT', label: 'Automatic' },
+    { code: 'MT', label: 'Manual' },
+  ];
+
+  const ownershipOptions = [
+    { code: 'first', label: 'Tangan 1' },
+    { code: 'second', label: 'Tangan 2' },
+    { code: 'third_plus', label: 'Tangan 3+' },
+  ];
+
+  const colorOptions = [
+    { code: 'common', label: 'Umum' },
+    { code: 'popular', label: 'Populer' },
+    { code: 'rare', label: 'Langka' },
+  ];
 
   return (
     <KeyboardAvoidingView
@@ -63,148 +185,199 @@ export default function CalculatorScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
       >
         <GradientHeader
-          title="Kalkulator Kredit"
-          subtitle="Simulasi pembiayaan mobil impian Anda"
+          title="Kalkulator Harga"
+          subtitle="Cek estimasi harga mobil bekas"
           height={140}
         />
 
         <View style={styles.content}>
-          {/* Car Price Input */}
+          {/* Brand */}
           <View style={[styles.card, Shadows.medium]}>
             <View style={styles.cardHeader}>
               <View style={styles.cardIconBg}>
                 <Ionicons name="car-sport" size={20} color={Colors.primary} />
               </View>
-              <Text style={styles.cardTitle}>Harga Mobil</Text>
+              <Text style={styles.cardTitle}>Pilih Mobil</Text>
             </View>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputPrefix}>Rp</Text>
-              <TextInput
-                style={styles.priceInput}
-                value={parseNumber(carPrice).toLocaleString('id-ID')}
-                onChangeText={(text) => setCarPrice(text.replace(/[^0-9]/g, ''))}
-                keyboardType="numeric"
-                placeholder="0"
-                placeholderTextColor={Colors.textTertiary}
-              />
-            </View>
+
+            {loadingOptions ? (
+              <ActivityIndicator color={Colors.primary} />
+            ) : (
+              <>
+                <Text style={styles.fieldLabel}>Merk</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                  {brandOptions.map((b) => (
+                    <TouchableOpacity
+                      key={b.id}
+                      style={[styles.chip, selectedBrand === b.id && styles.chipActive]}
+                      onPress={() => setSelectedBrand(b.id)}
+                    >
+                      <Text style={[styles.chipText, selectedBrand === b.id && styles.chipTextActive]}>
+                        {b.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {selectedBrand && (
+                  <>
+                    <Text style={styles.fieldLabel}>Model</Text>
+                    {loadingModels ? (
+                      <ActivityIndicator size="small" color={Colors.primary} />
+                    ) : (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                        {modelOptions.map((m) => (
+                          <TouchableOpacity
+                            key={m.id}
+                            style={[styles.chip, selectedModel === m.id && styles.chipActive]}
+                            onPress={() => setSelectedModel(m.id)}
+                          >
+                            <Text style={[styles.chipText, selectedModel === m.id && styles.chipTextActive]}>
+                              {m.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </>
+                )}
+
+                {selectedModel && (
+                  <>
+                    <Text style={styles.fieldLabel}>Varian</Text>
+                    {loadingVariants ? (
+                      <ActivityIndicator size="small" color={Colors.primary} />
+                    ) : (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                        {variantOptions.map((v) => (
+                          <TouchableOpacity
+                            key={v.id}
+                            style={[styles.chip, selectedVariant === v.id && styles.chipActive]}
+                            onPress={() => setSelectedVariant(v.id)}
+                          >
+                            <Text style={[styles.chipText, selectedVariant === v.id && styles.chipTextActive]}>
+                              {v.label}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </>
+                )}
+
+                {selectedVariant && (
+                  <>
+                    <Text style={styles.fieldLabel}>Tahun</Text>
+                    {loadingYears ? (
+                      <ActivityIndicator size="small" color={Colors.primary} />
+                    ) : (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                        {yearOptions.map((y) => (
+                          <TouchableOpacity
+                            key={y}
+                            style={[styles.chip, selectedYear === y && styles.chipActive]}
+                            onPress={() => setSelectedYear(y)}
+                          >
+                            <Text style={[styles.chipText, selectedYear === y && styles.chipTextActive]}>
+                              {y}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           </View>
 
-          {/* Down Payment */}
+          {/* Conditions */}
           <View style={[styles.card, Shadows.medium]}>
             <View style={styles.cardHeader}>
               <View style={styles.cardIconBg}>
-                <Ionicons name="wallet" size={20} color={Colors.primary} />
+                <Ionicons name="options" size={20} color={Colors.primary} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>Uang Muka (DP)</Text>
-                <Text style={styles.dpAmount}>{formatRupiah(result.downPayment)}</Text>
-              </View>
-              <View style={styles.percentBadge}>
-                <Text style={styles.percentText}>{dpPercent}%</Text>
-              </View>
+              <Text style={styles.cardTitle}>Kondisi</Text>
             </View>
-            <View style={styles.dpOptions}>
-              {dpOptions.map((opt) => (
+
+            <Text style={styles.fieldLabel}>Transmisi</Text>
+            <View style={styles.chipRow}>
+              {transmissionOptions.map((t) => (
                 <TouchableOpacity
-                  key={opt}
-                  style={[
-                    styles.dpChip,
-                    dpPercent === opt && styles.dpChipActive,
-                  ]}
-                  onPress={() => setDpPercent(opt)}
+                  key={t.code}
+                  style={[styles.chip, transmission === t.code && styles.chipActive]}
+                  onPress={() => setTransmission(t.code)}
                 >
-                  <Text
-                    style={[
-                      styles.dpChipText,
-                      dpPercent === opt && styles.dpChipTextActive,
-                    ]}
-                  >
-                    {opt}%
+                  <Text style={[styles.chipText, transmission === t.code && styles.chipTextActive]}>
+                    {t.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
 
-          {/* Loan Term */}
-          <View style={[styles.card, Shadows.medium]}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIconBg}>
-                <Ionicons name="calendar" size={20} color={Colors.primary} />
-              </View>
-              <Text style={styles.cardTitle}>Tenor Cicilan</Text>
-            </View>
-            <View style={styles.termOptions}>
-              {LOAN_TERMS.map((term) => (
+            <Text style={styles.fieldLabel}>Kepemilikan</Text>
+            <View style={styles.chipRow}>
+              {ownershipOptions.map((o) => (
                 <TouchableOpacity
-                  key={term}
-                  style={[
-                    styles.termChip,
-                    loanTerm === term && styles.termChipActive,
-                  ]}
-                  onPress={() => setLoanTerm(term)}
+                  key={o.code}
+                  style={[styles.chip, ownership === o.code && styles.chipActive]}
+                  onPress={() => setOwnership(o.code)}
                 >
-                  <Text
-                    style={[
-                      styles.termText,
-                      loanTerm === term && styles.termTextActive,
-                    ]}
-                  >
-                    {term / 12} Thn
-                  </Text>
-                  <Text
-                    style={[
-                      styles.termSubText,
-                      loanTerm === term && styles.termSubTextActive,
-                    ]}
-                  >
-                    {term} bln
+                  <Text style={[styles.chipText, ownership === o.code && styles.chipTextActive]}>
+                    {o.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </View>
 
-          {/* Interest Rate */}
-          <View style={[styles.card, Shadows.medium]}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIconBg}>
-                <Ionicons name="trending-up" size={20} color={Colors.primary} />
-              </View>
-              <Text style={styles.cardTitle}>Suku Bunga (% / tahun)</Text>
-            </View>
-            <View style={styles.inputWrapper}>
-              <TextInput
-                style={[styles.priceInput, { textAlign: 'center' }]}
-                value={interestRate}
-                onChangeText={setInterestRate}
-                keyboardType="decimal-pad"
-                placeholder="6.5"
-                placeholderTextColor={Colors.textTertiary}
-              />
-              <Text style={styles.inputSuffix}>%</Text>
+            <Text style={styles.fieldLabel}>Warna</Text>
+            <View style={styles.chipRow}>
+              {colorOptions.map((c) => (
+                <TouchableOpacity
+                  key={c.code}
+                  style={[styles.chip, color === c.code && styles.chipActive]}
+                  onPress={() => setColor(c.code)}
+                >
+                  <Text style={[styles.chipText, color === c.code && styles.chipTextActive]}>
+                    {c.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
           {/* Calculate Button */}
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={() => setShowResult(true)}
+            onPress={handleCalculate}
+            disabled={!canCalculate || calculating}
           >
             <LinearGradient
-              colors={[Colors.gradientStart, Colors.gradientEnd]}
+              colors={canCalculate ? [Colors.gradientStart, Colors.gradientEnd] : ['#94A3B8', '#94A3B8']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={[styles.calculateBtn, Shadows.blue]}
+              style={[styles.calculateBtn, canCalculate && Shadows.blue]}
             >
-              <Ionicons name="calculator" size={22} color={Colors.white} />
-              <Text style={styles.calculateBtnText}>Hitung Cicilan</Text>
+              {calculating ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <>
+                  <Ionicons name="calculator" size={22} color={Colors.white} />
+                  <Text style={styles.calculateBtnText}>Hitung Harga</Text>
+                </>
+              )}
             </LinearGradient>
           </TouchableOpacity>
 
+          {error && (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={18} color={Colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           {/* Result */}
-          {showResult && (
+          {result && (
             <View style={[styles.resultCard, Shadows.large]}>
               <LinearGradient
                 colors={[Colors.gradientStart, Colors.gradientMiddle]}
@@ -212,51 +385,61 @@ export default function CalculatorScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.resultHeader}
               >
-                <Text style={styles.resultHeaderTitle}>Estimasi Cicilan Bulanan</Text>
-                <Text style={styles.monthlyAmount}>
-                  {formatRupiah(Math.round(result.monthlyPayment))}
+                <Text style={styles.resultHeaderTitle}>Estimasi Harga Pasar</Text>
+                <Text style={styles.finalPrice}>{formatRupiahFull(result.finalPrice)}</Text>
+                <Text style={styles.priceRange}>
+                  {formatRupiahFull(result.priceRange.min)} - {formatRupiahFull(result.priceRange.max)}
                 </Text>
-                <Text style={styles.monthlyLabel}>per bulan selama {loanTerm / 12} tahun</Text>
               </LinearGradient>
 
               <View style={styles.resultBody}>
-                {[
-                  { label: 'Harga Mobil', value: result.carPrice, icon: 'car' as const },
-                  { label: 'Uang Muka (DP)', value: result.downPayment, icon: 'wallet' as const },
-                  { label: 'Pokok Pinjaman', value: result.loanAmount, icon: 'cash' as const },
-                  { label: 'Total Bunga', value: result.totalInterest, icon: 'trending-up' as const },
-                  { label: 'Total Bayar', value: result.totalPayment, icon: 'receipt' as const },
-                ].map((item, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.resultRow,
-                      i < 4 && styles.resultRowBorder,
-                    ]}
-                  >
-                    <View style={styles.resultRowLeft}>
-                      <View style={styles.resultIconBg}>
-                        <Ionicons name={item.icon} size={16} color={Colors.primary} />
-                      </View>
-                      <Text style={styles.resultLabel}>{item.label}</Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.resultValue,
-                        i === 4 && { color: Colors.primary, fontWeight: '900' },
-                      ]}
-                    >
-                      {formatRupiah(Math.round(item.value))}
+                {/* Car info */}
+                <View style={styles.resultSection}>
+                  <Text style={styles.resultSectionTitle}>Detail Mobil</Text>
+                  <Text style={styles.resultCarName}>
+                    {result.car.brandName} {result.car.modelName}
+                  </Text>
+                  <Text style={styles.resultCarVariant}>
+                    {result.car.variantName} · {result.car.year}
+                  </Text>
+                </View>
+
+                {/* Price breakdown */}
+                <View style={styles.resultSection}>
+                  <Text style={styles.resultSectionTitle}>Rincian Harga</Text>
+                  <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Harga Dasar</Text>
+                    <Text style={styles.breakdownValue}>
+                      {formatRupiahFull(result.priceBreakdown.basePrice)}
                     </Text>
                   </View>
-                ))}
-              </View>
+                  {result.priceBreakdown.adjustments.map((adj, i) => (
+                    <View key={i} style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>{adj.name}</Text>
+                      <Text
+                        style={[
+                          styles.breakdownValue,
+                          { color: adj.amount >= 0 ? Colors.success : Colors.error },
+                        ]}
+                      >
+                        {adj.amount >= 0 ? '+' : ''}{formatRupiahFull(adj.amount)}
+                      </Text>
+                    </View>
+                  ))}
+                  <View style={[styles.breakdownRow, styles.breakdownTotal]}>
+                    <Text style={styles.breakdownTotalLabel}>Total Penyesuaian</Text>
+                    <Text style={styles.breakdownTotalValue}>
+                      {formatRupiahFull(result.priceBreakdown.totalAdjustments)}
+                    </Text>
+                  </View>
+                </View>
 
-              <View style={styles.disclaimer}>
-                <Ionicons name="information-circle" size={16} color={Colors.textTertiary} />
-                <Text style={styles.disclaimerText}>
-                  * Perhitungan ini merupakan estimasi. Angka sebenarnya dapat berbeda tergantung kebijakan leasing.
-                </Text>
+                {result.priceRange.note && (
+                  <View style={styles.disclaimer}>
+                    <Ionicons name="information-circle" size={16} color={Colors.textTertiary} />
+                    <Text style={styles.disclaimerText}>{result.priceRange.note}</Text>
+                  </View>
+                )}
               </View>
             </View>
           )}
@@ -301,101 +484,34 @@ const styles = StyleSheet.create({
     color: Colors.text,
     flex: 1,
   },
-  dpAmount: {
+  fieldLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: Colors.primary,
-    marginTop: 2,
+    color: Colors.textSecondary,
+    marginTop: 12,
+    marginBottom: 8,
   },
-  percentBadge: {
-    backgroundColor: Colors.primarySoft,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  percentText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.backgroundSecondary,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    height: 52,
-  },
-  inputPrefix: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.primary,
-    marginRight: 8,
-  },
-  inputSuffix: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.primary,
-    marginLeft: 8,
-  },
-  priceInput: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  dpOptions: {
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  dpChip: {
-    paddingHorizontal: 18,
+  chip: {
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,
     backgroundColor: Colors.backgroundSecondary,
   },
-  dpChipActive: {
+  chipActive: {
     backgroundColor: Colors.primary,
   },
-  dpChipText: {
-    fontSize: 14,
+  chipText: {
+    fontSize: 13,
     fontWeight: '700',
     color: Colors.textSecondary,
   },
-  dpChipTextActive: {
+  chipTextActive: {
     color: Colors.white,
-  },
-  termOptions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  termChip: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: Colors.backgroundSecondary,
-  },
-  termChipActive: {
-    backgroundColor: Colors.primary,
-  },
-  termText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  termTextActive: {
-    color: Colors.white,
-  },
-  termSubText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: Colors.textTertiary,
-    marginTop: 2,
-  },
-  termSubTextActive: {
-    color: 'rgba(255,255,255,0.7)',
   },
   calculateBtn: {
     flexDirection: 'row',
@@ -411,6 +527,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.white,
   },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.errorLight,
+    padding: 14,
+    borderRadius: 12,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.error,
+  },
   resultCard: {
     backgroundColor: Colors.card,
     borderRadius: 24,
@@ -425,14 +555,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'rgba(255,255,255,0.8)',
   },
-  monthlyAmount: {
+  finalPrice: {
     fontSize: 32,
     fontWeight: '900',
     color: Colors.white,
     marginTop: 6,
     letterSpacing: -1,
   },
-  monthlyLabel: {
+  priceRange: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.65)',
     marginTop: 4,
@@ -441,45 +571,63 @@ const styles = StyleSheet.create({
   resultBody: {
     padding: 18,
   },
-  resultRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
+  resultSection: {
+    marginBottom: 16,
   },
-  resultRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  resultRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  resultIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: Colors.primarySoftest,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resultLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-  },
-  resultValue: {
+  resultSectionTitle: {
     fontSize: 14,
     fontWeight: '700',
     color: Colors.text,
+    marginBottom: 8,
+  },
+  resultCarName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  resultCarVariant: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.textSecondary,
+  },
+  breakdownValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  breakdownTotal: {
+    borderBottomWidth: 0,
+    marginTop: 4,
+  },
+  breakdownTotalLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  breakdownTotalValue: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: Colors.primary,
   },
   disclaimer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    paddingHorizontal: 18,
-    paddingBottom: 18,
+    paddingTop: 12,
   },
   disclaimerText: {
     flex: 1,

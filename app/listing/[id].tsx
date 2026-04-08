@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,90 +8,132 @@ import {
   Dimensions,
   FlatList,
   Share,
+  Linking,
+  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors, { Shadows } from '@/constants/Colors';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import EmptyState from '@/components/ui/EmptyState';
+import type { Listing } from '@/types';
+import { fetchListingDetail, getWhatsAppLink } from '@/lib/api/marketplaceService';
+import {
+  formatRupiahFull,
+  formatMileage,
+  getListingTitle,
+  resolveImageUrl,
+  timeAgo,
+} from '@/lib/utils';
 
 const { width } = Dimensions.get('window');
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
-// Demo detail data
-const DEMO_CAR = {
-  id: '1',
-  brand: 'Toyota',
-  model: 'Fortuner',
-  variant: 'VRZ 2.4 AT Diesel',
-  year: 2023,
-  price: 585000000,
-  mileage: 12000,
-  fuelType: 'Diesel',
-  transmission: 'Automatic',
-  color: 'Putih Mutiara',
-  location: 'Jakarta Selatan',
-  description:
-    'Toyota Fortuner VRZ 2.4 AT Diesel tahun 2023 kondisi sangat terawat. Servis record resmi Toyota. Interior bersih dan wangi. Ban masih tebal. Bebas banjir dan tabrakan. Surat-surat lengkap dan pajak hidup sampai 2025.',
-  images: [
-    'https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=800',
-    'https://images.unsplash.com/photo-1568844293986-8d0400f4745b?w=800',
-    'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800',
-    'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800',
-  ],
-  seller: {
-    name: 'Auto Gallery Premium',
-    verified: true,
-    avatar: null,
-    phone: '+62 812-3456-7890',
-    location: 'Jakarta Selatan',
-    totalListings: 24,
-    memberSince: '2022',
-  },
-  features: [
-    'Sunroof',
-    'Leather Seat',
-    'Keyless Entry',
-    'Push Start',
-    'Cruise Control',
-    'Hill Start Assist',
-    'Rear Camera',
-    'Apple CarPlay',
-  ],
-  specs: [
-    { label: 'Mesin', value: '2.4L Turbo Diesel', icon: 'settings' as IoniconsName },
-    { label: 'Tenaga', value: '150 HP', icon: 'flash' as IoniconsName },
-    { label: 'Torsi', value: '400 Nm', icon: 'speedometer' as IoniconsName },
-    { label: 'Kapasitas', value: '7 Penumpang', icon: 'people' as IoniconsName },
-    { label: 'Transmisi', value: 'AT 6-Speed', icon: 'cog' as IoniconsName },
-    { label: 'Penggerak', value: '4x2 (RWD)', icon: 'car' as IoniconsName },
-  ],
-};
-
 export default function ListingDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { id } = useLocalSearchParams<{ id: string }>();
+
+  const [car, setCar] = useState<Listing | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
-  const car = DEMO_CAR;
+  const [contacting, setContacting] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    loadDetail();
+  }, [id]);
+
+  const loadDetail = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetchListingDetail(id!);
+      setCar(res.data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal memuat detail listing';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleShare = async () => {
+    if (!car) return;
+    const title = getListingTitle(car);
     await Share.share({
-      title: `${car.brand} ${car.model} ${car.variant}`,
-      message: `Lihat ${car.brand} ${car.model} ${car.variant} seharga Rp ${car.price.toLocaleString('id-ID')} di Mediator!`,
+      title: `${title} ${car.variant?.name || ''}`,
+      message: `Lihat ${title} ${car.variant?.name || ''} seharga ${formatRupiahFull(car.price)} di Mediator!`,
     });
   };
+
+  const handleContact = async () => {
+    if (!car) return;
+    try {
+      setContacting(true);
+      const res = await getWhatsAppLink(car.id);
+      if (res.whatsappUrl) {
+        await Linking.openURL(res.whatsappUrl);
+      }
+    } catch {
+      Alert.alert('Error', 'Gagal mendapatkan link WhatsApp penjual');
+    } finally {
+      setContacting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.screen}>
+        <LoadingSpinner fullScreen message="Memuat detail..." />
+      </View>
+    );
+  }
+
+  if (error || !car) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.floatingHeader, { paddingTop: insets.top + 4 }]}>
+          <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={22} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+        <EmptyState
+          icon="alert-circle-outline"
+          title="Gagal Memuat"
+          subtitle={error || 'Listing tidak ditemukan'}
+          actionLabel="Coba Lagi"
+          onAction={loadDetail}
+        />
+      </View>
+    );
+  }
+
+  const title = getListingTitle(car);
+  const variantName = car.variant?.name || '';
+  const images = (car.images || []).map((img) => resolveImageUrl(img)).filter(Boolean) as string[];
+  const sellerInitial = car.seller?.fullName?.charAt(0) || '?';
+
+  const specs: { label: string; value: string; icon: IoniconsName }[] = [
+    { label: 'Transmisi', value: car.transmission, icon: 'cog' },
+    { label: 'Bahan Bakar', value: car.fuelType, icon: 'flash' },
+    { label: 'Kilometer', value: formatMileage(car.mileage), icon: 'speedometer' },
+    { label: 'Warna', value: car.color, icon: 'color-palette' },
+    { label: 'Kondisi', value: car.condition === 'baru' ? 'Baru' : 'Bekas', icon: 'car' },
+    { label: 'Tahun', value: String(car.year), icon: 'calendar' },
+  ];
 
   return (
     <View style={styles.screen}>
       {/* Floating Header */}
       <View style={[styles.floatingHeader, { paddingTop: insets.top + 4 }]}>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <View style={styles.headerRight}>
@@ -117,44 +159,50 @@ export default function ListingDetailScreen() {
       >
         {/* Image Carousel */}
         <View>
-          <FlatList
-            data={car.images}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) => {
-              setActiveImageIndex(
-                Math.round(e.nativeEvent.contentOffset.x / width),
-              );
-            }}
-            renderItem={({ item }) => (
-              <Image
-                source={{ uri: item }}
-                style={styles.carouselImage}
-                contentFit="cover"
-                transition={300}
-              />
-            )}
-            keyExtractor={(_, i) => i.toString()}
-          />
-          {/* Dots */}
-          <View style={styles.dotsContainer}>
-            {car.images.map((_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.dot,
-                  activeImageIndex === i && styles.dotActive,
-                ]}
-              />
-            ))}
-          </View>
-          <View style={styles.imageCounter}>
-            <Ionicons name="image" size={14} color={Colors.white} />
-            <Text style={styles.imageCounterText}>
-              {activeImageIndex + 1}/{car.images.length}
-            </Text>
-          </View>
+          {images.length > 0 ? (
+            <FlatList
+              data={images}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) => {
+                setActiveImageIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+              }}
+              renderItem={({ item }) => (
+                <Image
+                  source={{ uri: item }}
+                  style={styles.carouselImage}
+                  contentFit="cover"
+                  transition={300}
+                />
+              )}
+              keyExtractor={(_, i) => i.toString()}
+            />
+          ) : (
+            <Image
+              source={require('@/assets/images/car-placeholder.png')}
+              style={styles.carouselImage}
+              contentFit="cover"
+            />
+          )}
+          {images.length > 1 && (
+            <>
+              <View style={styles.dotsContainer}>
+                {images.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[styles.dot, activeImageIndex === i && styles.dotActive]}
+                  />
+                ))}
+              </View>
+              <View style={styles.imageCounter}>
+                <Ionicons name="image" size={14} color={Colors.white} />
+                <Text style={styles.imageCounterText}>
+                  {activeImageIndex + 1}/{images.length}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Main Info */}
@@ -165,17 +213,33 @@ export default function ListingDetailScreen() {
             </View>
             <View style={styles.mileageBadge}>
               <Ionicons name="speedometer-outline" size={14} color={Colors.textSecondary} />
-              <Text style={styles.mileageBadgeText}>{(car.mileage / 1000).toFixed(0)}rb km</Text>
+              <Text style={styles.mileageBadgeText}>{formatMileage(car.mileage)}</Text>
             </View>
+            {car.isFeatured && (
+              <View style={styles.featuredBadge}>
+                <Ionicons name="star" size={14} color={Colors.white} />
+                <Text style={styles.featuredBadgeText}>Unggulan</Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.carTitle}>
-            {car.brand} {car.model}
-          </Text>
-          <Text style={styles.carVariant}>{car.variant}</Text>
-          <Text style={styles.carPrice}>Rp {car.price.toLocaleString('id-ID')}</Text>
+          <Text style={styles.carTitle}>{title}</Text>
+          {variantName ? <Text style={styles.carVariant}>{variantName}</Text> : null}
+          <Text style={styles.carPrice}>{formatRupiahFull(car.price)}</Text>
           <View style={styles.locationRow}>
             <Ionicons name="location" size={16} color={Colors.primary} />
-            <Text style={styles.locationText}>{car.location}</Text>
+            <Text style={styles.locationText}>
+              {car.locationCity}{car.locationProvince ? `, ${car.locationProvince}` : ''}
+            </Text>
+          </View>
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Ionicons name="eye-outline" size={14} color={Colors.textTertiary} />
+              <Text style={styles.statText}>{car.viewCount} dilihat</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Ionicons name="time-outline" size={14} color={Colors.textTertiary} />
+              <Text style={styles.statText}>{timeAgo(car.createdAt)}</Text>
+            </View>
           </View>
         </View>
 
@@ -183,7 +247,7 @@ export default function ListingDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Spesifikasi</Text>
           <View style={styles.specsGrid}>
-            {car.specs.map((spec, i) => (
+            {specs.map((spec, i) => (
               <View key={i} style={[styles.specItem, Shadows.small]}>
                 <View style={styles.specIconBg}>
                   <Ionicons name={spec.icon} size={18} color={Colors.primary} />
@@ -195,68 +259,67 @@ export default function ListingDetailScreen() {
           </View>
         </View>
 
-        {/* Features */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Fitur</Text>
-          <View style={styles.featuresGrid}>
-            {car.features.map((feat, i) => (
-              <View key={i} style={styles.featureChip}>
-                <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-                <Text style={styles.featureChipText}>{feat}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
         {/* Description */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Deskripsi</Text>
-          <View style={[styles.descCard, Shadows.small]}>
-            <Text style={styles.descText}>{car.description}</Text>
-          </View>
-        </View>
-
-        {/* Seller Info */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Penjual</Text>
-          <View style={[styles.sellerCard, Shadows.medium]}>
-            <View style={styles.sellerRow}>
-              <View style={styles.sellerAvatar}>
-                <Text style={styles.sellerAvatarText}>
-                  {car.seller.name.charAt(0)}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={styles.sellerNameRow}>
-                  <Text style={styles.sellerName}>{car.seller.name}</Text>
-                  {car.seller.verified && (
-                    <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
-                  )}
-                </View>
-                <Text style={styles.sellerMeta}>
-                  {car.seller.totalListings} listing | Member sejak {car.seller.memberSince}
-                </Text>
-              </View>
+        {car.description ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Deskripsi</Text>
+            <View style={[styles.descCard, Shadows.small]}>
+              <Text style={styles.descText}>{car.description}</Text>
             </View>
           </View>
-        </View>
+        ) : null}
+
+        {/* Seller Info */}
+        {car.seller && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Penjual</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push(`/seller/${car.seller.id}`)}
+              style={[styles.sellerCard, Shadows.medium]}
+            >
+              <View style={styles.sellerRow}>
+                <View style={styles.sellerAvatar}>
+                  <Text style={styles.sellerAvatarText}>{sellerInitial}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.sellerNameRow}>
+                    <Text style={styles.sellerName}>{car.seller.fullName}</Text>
+                  </View>
+                  <Text style={styles.sellerMeta}>
+                    {car.seller.location || car.locationCity} · Member sejak{' '}
+                    {new Date(car.seller.createdAt).getFullYear()}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* Bottom CTA */}
       <View style={[styles.bottomCta, { paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.bottomPriceContainer}>
           <Text style={styles.bottomPriceLabel}>Harga</Text>
-          <Text style={styles.bottomPrice}>Rp {car.price.toLocaleString('id-ID')}</Text>
+          <Text style={styles.bottomPrice}>{formatRupiahFull(car.price)}</Text>
         </View>
-        <TouchableOpacity activeOpacity={0.85} style={{ flex: 1 }}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={{ flex: 1 }}
+          onPress={handleContact}
+          disabled={contacting}
+        >
           <LinearGradient
             colors={[Colors.gradientStart, Colors.gradientEnd]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[styles.contactBtn, Shadows.blue]}
           >
-            <Ionicons name="chatbubble-ellipses" size={20} color={Colors.white} />
-            <Text style={styles.contactBtnText}>Hubungi</Text>
+            <Ionicons name="logo-whatsapp" size={20} color={Colors.white} />
+            <Text style={styles.contactBtnText}>
+              {contacting ? 'Memuat...' : 'WhatsApp'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -368,6 +431,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textSecondary,
   },
+  featuredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.warning,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  featuredBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.white,
+  },
   carTitle: {
     fontSize: 24,
     fontWeight: '900',
@@ -397,6 +474,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: Colors.textSecondary,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.borderLight,
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textTertiary,
   },
   section: {
     padding: 20,
@@ -439,25 +534,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.text,
     textAlign: 'center',
-  },
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  featureChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.successLight,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  featureChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.text,
   },
   descCard: {
     backgroundColor: Colors.card,

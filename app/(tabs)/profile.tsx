@@ -47,45 +47,36 @@ export default function ProfileScreen() {
       title: 'Akun',
       items: [
         {
-          icon: 'person-outline',
-          label: 'Edit Profil',
-          subtitle: 'Ubah informasi pribadi',
+          icon: 'car-outline',
+          label: 'Listing Saya',
+          subtitle: 'Kelola iklan mobil Anda',
           color: Colors.primary,
+          onPress: () => {
+            if (!isLoggedIn) {
+              router.push('/(auth)/login');
+              return;
+            }
+            router.push('/my-listings');
+          },
+        },
+        {
+          icon: 'add-circle-outline',
+          label: 'Pasang Iklan',
+          subtitle: 'Jual mobil Anda',
+          color: Colors.success,
+          onPress: () => {
+            if (!isLoggedIn) {
+              router.push('/(auth)/login');
+              return;
+            }
+            router.push('/create-listing');
+          },
         },
         {
           icon: 'heart-outline',
           label: 'Favorit Saya',
           subtitle: 'Mobil yang Anda simpan',
           color: '#E11D48',
-        },
-        {
-          icon: 'time-outline',
-          label: 'Riwayat Inspeksi',
-          subtitle: 'Lihat hasil inspeksi',
-          color: Colors.accent,
-        },
-      ],
-    },
-    {
-      title: 'Pengaturan',
-      items: [
-        {
-          icon: 'notifications-outline',
-          label: 'Notifikasi',
-          subtitle: 'Atur preferensi notifikasi',
-          color: '#F59E0B',
-        },
-        {
-          icon: 'shield-outline',
-          label: 'Keamanan',
-          subtitle: 'Password & autentikasi',
-          color: '#10B981',
-        },
-        {
-          icon: 'language-outline',
-          label: 'Bahasa',
-          subtitle: 'Indonesia',
-          color: '#8B5CF6',
         },
       ],
     },
@@ -141,10 +132,15 @@ export default function ProfileScreen() {
               </View>
               <Text style={styles.userName}>{user.fullName}</Text>
               <Text style={styles.userEmail}>{user.email}</Text>
-              {user.phone && (
+              {user.phoneNumber && (
                 <View style={styles.phoneBadge}>
                   <Ionicons name="call" size={12} color={Colors.white} />
-                  <Text style={styles.phoneText}>{user.phone}</Text>
+                  <Text style={styles.phoneText}>{user.phoneNumber}</Text>
+                </View>
+              )}
+              {user.role && (
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleText}>{user.role}</Text>
                 </View>
               )}
             </View>
@@ -171,15 +167,16 @@ export default function ProfileScreen() {
         {isLoggedIn && (
           <View style={styles.statsRow}>
             {[
-              { num: '0', label: 'Favorit', icon: 'heart' as const },
-              { num: '0', label: 'Inspeksi', icon: 'shield-checkmark' as const },
-              { num: '0', label: 'Listing', icon: 'car' as const },
+              { label: 'Listing', icon: 'car' as IoniconsName, onPress: () => router.push('/my-listings') },
+              { label: 'Kalkulator', icon: 'calculator' as IoniconsName, onPress: () => router.push('/(tabs)/calculator') },
+              { label: 'Inspeksi', icon: 'shield-checkmark' as IoniconsName, onPress: () => router.push('/(tabs)/inspection') },
             ].map((stat, i) => (
-              <View key={i} style={[styles.statCard, Shadows.small]}>
-                <Ionicons name={stat.icon} size={22} color={Colors.primary} />
-                <Text style={styles.statNum}>{stat.num}</Text>
+              <TouchableOpacity key={i} style={[styles.statCard, Shadows.small]} onPress={stat.onPress} activeOpacity={0.7}>
+                <View style={styles.statIconBg}>
+                  <Ionicons name={stat.icon} size={22} color={Colors.primary} />
+                </View>
                 <Text style={styles.statLabel}>{stat.label}</Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -323,6 +320,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.white,
   },
+  roleBadge: {
+    marginTop: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  roleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.white,
+    textTransform: 'capitalize',
+  },
   loginBtn: {
     marginTop: 16,
     backgroundColor: Colors.white,
@@ -335,8 +345,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.primary,
   },
-
-  // Stats
   statsRow: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -349,20 +357,21 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
-  statNum: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: Colors.text,
+  statIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: Colors.primarySoftest,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textTertiary,
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
   },
-
-  // Menu
   menuContainer: {
     padding: 16,
     gap: 18,

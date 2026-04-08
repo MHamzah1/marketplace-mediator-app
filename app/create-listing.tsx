@@ -1,0 +1,653 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import Colors, { Shadows } from '@/constants/Colors';
+import {
+  getCalculatorOptions,
+  getModelsByBrand,
+  getVariantsByModel,
+  getYearsByVariant,
+} from '@/lib/api/calculatorService';
+import { createListing, updateListing, fetchListingDetail } from '@/lib/api/marketplaceService';
+
+interface SelectOption {
+  id: string;
+  label: string;
+}
+
+export default function CreateListingScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const isEdit = !!editId;
+
+  // Options
+  const [brandOptions, setBrandOptions] = useState<SelectOption[]>([]);
+  const [modelOptions, setModelOptions] = useState<SelectOption[]>([]);
+  const [variantOptions, setVariantOptions] = useState<SelectOption[]>([]);
+  const [yearOptions, setYearOptions] = useState<number[]>([]);
+
+  // Form
+  const [selectedBrand, setSelectedBrand] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
+  const [selectedVariant, setSelectedVariant] = useState('');
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [yearPriceId, setYearPriceId] = useState('');
+  const [price, setPrice] = useState('');
+  const [mileage, setMileage] = useState('');
+  const [transmission, setTransmission] = useState('Automatic');
+  const [fuelType, setFuelType] = useState('Bensin');
+  const [color, setColor] = useState('');
+  const [locationCity, setLocationCity] = useState('');
+  const [locationProvince, setLocationProvince] = useState('');
+  const [description, setDescription] = useState('');
+  const [condition, setCondition] = useState('bekas');
+  const [sellerWhatsapp, setSellerWhatsapp] = useState('');
+  const [images, setImages] = useState<{ uri: string; type: string; name: string }[]>([]);
+
+  // State
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [loadingVariants, setLoadingVariants] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    getCalculatorOptions()
+      .then((data) => {
+        setBrandOptions((data.brands || []).map((b) => ({ id: b.id, label: b.name })));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingOptions(false));
+  }, []);
+
+  // Load edit data
+  useEffect(() => {
+    if (!editId) return;
+    fetchListingDetail(editId).then((res) => {
+      const l = res.data;
+      if (!l) return;
+      setPrice(String(l.price));
+      setMileage(String(l.mileage));
+      setTransmission(l.transmission);
+      setFuelType(l.fuelType);
+      setColor(l.color);
+      setLocationCity(l.locationCity);
+      setLocationProvince(l.locationProvince);
+      setDescription(l.description);
+      setCondition(l.condition);
+      setSellerWhatsapp(l.sellerWhatsapp);
+    }).catch(() => {});
+  }, [editId]);
+
+  useEffect(() => {
+    if (!selectedBrand) { setModelOptions([]); setSelectedModel(''); return; }
+    setLoadingModels(true);
+    setSelectedModel('');
+    setVariantOptions([]);
+    setSelectedVariant('');
+    getModelsByBrand(selectedBrand)
+      .then((data) => setModelOptions((data.models || []).map((m) => ({ id: m.id, label: m.modelName }))))
+      .catch(() => {})
+      .finally(() => setLoadingModels(false));
+  }, [selectedBrand]);
+
+  useEffect(() => {
+    if (!selectedModel) { setVariantOptions([]); setSelectedVariant(''); return; }
+    setLoadingVariants(true);
+    setSelectedVariant('');
+    getVariantsByModel(selectedModel)
+      .then((data: { id: string; name: string }[]) => setVariantOptions((data || []).map((v) => ({ id: v.id, label: v.name }))))
+      .catch(() => {})
+      .finally(() => setLoadingVariants(false));
+  }, [selectedModel]);
+
+  useEffect(() => {
+    if (!selectedVariant) { setYearOptions([]); setSelectedYear(null); return; }
+    getYearsByVariant(selectedVariant)
+      .then((data) => setYearOptions(data.years || []))
+      .catch(() => {});
+  }, [selectedVariant]);
+
+  const pickImages = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: 10 - images.length,
+    });
+
+    if (!result.canceled) {
+      const newImages = result.assets.map((asset) => ({
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        name: asset.fileName || `photo-${Date.now()}.jpg`,
+      }));
+      setImages((prev) => [...prev, ...newImages]);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedVariant || !price || !mileage || !locationCity || !sellerWhatsapp) {
+      Alert.alert('Data Belum Lengkap', 'Mohon lengkapi semua data yang diperlukan');
+      return;
+    }
+    if (!isEdit && images.length === 0) {
+      Alert.alert('Foto Diperlukan', 'Mohon tambahkan minimal 1 foto');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const data: Record<string, string> = {
+        variantId: selectedVariant,
+        price,
+        mileage,
+        transmission,
+        fuelType,
+        color,
+        locationCity,
+        locationProvince,
+        description,
+        condition,
+        sellerWhatsapp,
+      };
+      if (selectedYear) data.year = String(selectedYear);
+      if (yearPriceId) data.yearPriceId = yearPriceId;
+
+      if (isEdit) {
+        await updateListing(editId!, data, images.length > 0 ? images : undefined);
+        Alert.alert('Berhasil', 'Listing berhasil diperbarui', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      } else {
+        await createListing(data, images);
+        Alert.alert('Berhasil', 'Listing berhasil dibuat', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Gagal menyimpan listing';
+      Alert.alert('Error', msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const transmissionOptions = ['Automatic', 'Manual', 'CVT'];
+  const fuelOptions = ['Bensin', 'Diesel', 'Listrik', 'Hybrid'];
+  const conditionOptions = [
+    { value: 'baru', label: 'Baru' },
+    { value: 'bekas', label: 'Bekas' },
+  ];
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{isEdit ? 'Edit Listing' : 'Pasang Iklan'}</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 100 }}
+      >
+        {/* Images */}
+        <View style={[styles.card, Shadows.medium]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="camera" size={20} color={Colors.primary} />
+            <Text style={styles.cardTitle}>Foto Mobil</Text>
+            <Text style={styles.cardSubtitle}>{images.length}/10</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.imageRow}>
+            {images.map((img, i) => (
+              <View key={i} style={styles.imageThumb}>
+                <Image source={{ uri: img.uri }} style={styles.thumbImage} contentFit="cover" />
+                <TouchableOpacity style={styles.removeImageBtn} onPress={() => removeImage(i)}>
+                  <Ionicons name="close-circle" size={22} color={Colors.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {images.length < 10 && (
+              <TouchableOpacity style={styles.addImageBtn} onPress={pickImages}>
+                <Ionicons name="add-circle-outline" size={32} color={Colors.primary} />
+                <Text style={styles.addImageText}>Tambah</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+        </View>
+
+        {/* Car Selection */}
+        <View style={[styles.card, Shadows.medium]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="car-sport" size={20} color={Colors.primary} />
+            <Text style={styles.cardTitle}>Data Mobil</Text>
+          </View>
+
+          {loadingOptions ? (
+            <ActivityIndicator color={Colors.primary} />
+          ) : (
+            <>
+              <Text style={styles.fieldLabel}>Merk *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                {brandOptions.map((b) => (
+                  <TouchableOpacity
+                    key={b.id}
+                    style={[styles.chip, selectedBrand === b.id && styles.chipActive]}
+                    onPress={() => setSelectedBrand(b.id)}
+                  >
+                    <Text style={[styles.chipText, selectedBrand === b.id && styles.chipTextActive]}>{b.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {selectedBrand && (
+                <>
+                  <Text style={styles.fieldLabel}>Model *</Text>
+                  {loadingModels ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                      {modelOptions.map((m) => (
+                        <TouchableOpacity
+                          key={m.id}
+                          style={[styles.chip, selectedModel === m.id && styles.chipActive]}
+                          onPress={() => setSelectedModel(m.id)}
+                        >
+                          <Text style={[styles.chipText, selectedModel === m.id && styles.chipTextActive]}>{m.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </>
+              )}
+
+              {selectedModel && (
+                <>
+                  <Text style={styles.fieldLabel}>Varian *</Text>
+                  {loadingVariants ? (
+                    <ActivityIndicator size="small" color={Colors.primary} />
+                  ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                      {variantOptions.map((v) => (
+                        <TouchableOpacity
+                          key={v.id}
+                          style={[styles.chip, selectedVariant === v.id && styles.chipActive]}
+                          onPress={() => setSelectedVariant(v.id)}
+                        >
+                          <Text style={[styles.chipText, selectedVariant === v.id && styles.chipTextActive]}>{v.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </>
+              )}
+
+              {yearOptions.length > 0 && (
+                <>
+                  <Text style={styles.fieldLabel}>Tahun</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                    {yearOptions.map((y) => (
+                      <TouchableOpacity
+                        key={y}
+                        style={[styles.chip, selectedYear === y && styles.chipActive]}
+                        onPress={() => setSelectedYear(y)}
+                      >
+                        <Text style={[styles.chipText, selectedYear === y && styles.chipTextActive]}>{y}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              )}
+            </>
+          )}
+
+          <Text style={styles.fieldLabel}>Kondisi</Text>
+          <View style={styles.chipRow}>
+            {conditionOptions.map((c) => (
+              <TouchableOpacity
+                key={c.value}
+                style={[styles.chip, condition === c.value && styles.chipActive]}
+                onPress={() => setCondition(c.value)}
+              >
+                <Text style={[styles.chipText, condition === c.value && styles.chipTextActive]}>{c.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.fieldLabel}>Transmisi</Text>
+          <View style={styles.chipRow}>
+            {transmissionOptions.map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.chip, transmission === t && styles.chipActive]}
+                onPress={() => setTransmission(t)}
+              >
+                <Text style={[styles.chipText, transmission === t && styles.chipTextActive]}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.fieldLabel}>Bahan Bakar</Text>
+          <View style={styles.chipRow}>
+            {fuelOptions.map((f) => (
+              <TouchableOpacity
+                key={f}
+                style={[styles.chip, fuelType === f && styles.chipActive]}
+                onPress={() => setFuelType(f)}
+              >
+                <Text style={[styles.chipText, fuelType === f && styles.chipTextActive]}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Details */}
+        <View style={[styles.card, Shadows.medium]}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="create" size={20} color={Colors.primary} />
+            <Text style={styles.cardTitle}>Detail</Text>
+          </View>
+
+          <Text style={styles.fieldLabel}>Harga (Rp) *</Text>
+          <View style={styles.inputWrapper}>
+            <Text style={styles.inputPrefix}>Rp</Text>
+            <TextInput
+              style={styles.input}
+              value={price}
+              onChangeText={(t) => setPrice(t.replace(/[^0-9]/g, ''))}
+              keyboardType="numeric"
+              placeholder="300000000"
+              placeholderTextColor={Colors.textTertiary}
+            />
+          </View>
+
+          <Text style={styles.fieldLabel}>Kilometer *</Text>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.input}
+              value={mileage}
+              onChangeText={(t) => setMileage(t.replace(/[^0-9]/g, ''))}
+              keyboardType="numeric"
+              placeholder="15000"
+              placeholderTextColor={Colors.textTertiary}
+            />
+            <Text style={styles.inputSuffix}>km</Text>
+          </View>
+
+          <Text style={styles.fieldLabel}>Warna</Text>
+          <TextInput
+            style={styles.inputFull}
+            value={color}
+            onChangeText={setColor}
+            placeholder="cth: Putih Mutiara"
+            placeholderTextColor={Colors.textTertiary}
+          />
+
+          <Text style={styles.fieldLabel}>Kota *</Text>
+          <TextInput
+            style={styles.inputFull}
+            value={locationCity}
+            onChangeText={setLocationCity}
+            placeholder="cth: Jakarta Selatan"
+            placeholderTextColor={Colors.textTertiary}
+          />
+
+          <Text style={styles.fieldLabel}>Provinsi</Text>
+          <TextInput
+            style={styles.inputFull}
+            value={locationProvince}
+            onChangeText={setLocationProvince}
+            placeholder="cth: DKI Jakarta"
+            placeholderTextColor={Colors.textTertiary}
+          />
+
+          <Text style={styles.fieldLabel}>No. WhatsApp *</Text>
+          <TextInput
+            style={styles.inputFull}
+            value={sellerWhatsapp}
+            onChangeText={setSellerWhatsapp}
+            placeholder="cth: 08123456789"
+            placeholderTextColor={Colors.textTertiary}
+            keyboardType="phone-pad"
+          />
+
+          <Text style={styles.fieldLabel}>Deskripsi</Text>
+          <TextInput
+            style={[styles.inputFull, styles.textArea]}
+            value={description}
+            onChangeText={setDescription}
+            placeholder="Deskripsikan kondisi dan fitur mobil Anda..."
+            placeholderTextColor={Colors.textTertiary}
+            multiline
+            numberOfLines={5}
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Submit */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleSubmit}
+          disabled={submitting}
+        >
+          <LinearGradient
+            colors={[Colors.gradientStart, Colors.gradientEnd]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.submitBtn, Shadows.blue]}
+          >
+            {submitting ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <>
+                <Ionicons name={isEdit ? 'checkmark-circle' : 'add-circle'} size={22} color={Colors.white} />
+                <Text style={styles.submitBtnText}>
+                  {isEdit ? 'Simpan Perubahan' : 'Pasang Iklan'}
+                </Text>
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: Colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Colors.text,
+  },
+  card: {
+    backgroundColor: Colors.card,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 14,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.text,
+    flex: 1,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textTertiary,
+  },
+  imageRow: {
+    gap: 10,
+  },
+  imageThumb: {
+    width: 90,
+    height: 90,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  thumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+  },
+  addImageBtn: {
+    width: 90,
+    height: 90,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: Colors.primarySoft,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primarySoftest,
+  },
+  addImageText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.primary,
+    marginTop: 2,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: Colors.backgroundSecondary,
+  },
+  chipActive: {
+    backgroundColor: Colors.primary,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  chipTextActive: {
+    color: Colors.white,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.backgroundSecondary,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 50,
+  },
+  inputPrefix: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.primary,
+    marginRight: 8,
+  },
+  inputSuffix: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.primary,
+    marginLeft: 8,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text,
+  },
+  inputFull: {
+    backgroundColor: Colors.backgroundSecondary,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 50,
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  textArea: {
+    height: 120,
+    paddingTop: 14,
+    paddingBottom: 14,
+  },
+  submitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    height: 56,
+    borderRadius: 18,
+    marginTop: 4,
+  },
+  submitBtnText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: Colors.white,
+  },
+});

@@ -12,24 +12,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import Colors, { Shadows } from '@/constants/Colors';
-import { CarListing } from '@/types';
+import type { Listing } from '@/types';
+import { formatRupiah, getListingTitle, getListingImage } from '@/lib/utils';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.78;
 const CARD_HEIGHT = 200;
 
-function formatPrice(price: number): string {
-  if (price >= 1_000_000_000) {
-    return `Rp ${(price / 1_000_000_000).toFixed(1)} Miliar`;
-  }
-  if (price >= 1_000_000) {
-    return `Rp ${(price / 1_000_000).toFixed(0)} Juta`;
-  }
-  return `Rp ${price.toLocaleString('id-ID')}`;
-}
-
 interface FeaturedCarouselProps {
-  items: CarListing[];
+  items: Listing[];
 }
 
 export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
@@ -45,7 +36,10 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
           <Text style={styles.sectionTitle}>Pilihan Unggulan</Text>
           <Text style={styles.sectionSubtitle}>Mobil terbaik untuk Anda</Text>
         </View>
-        <TouchableOpacity style={styles.seeAll}>
+        <TouchableOpacity
+          style={styles.seeAll}
+          onPress={() => router.push('/search?featured=true')}
+        >
           <Text style={styles.seeAllText}>Lihat Semua</Text>
           <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
         </TouchableOpacity>
@@ -60,53 +54,58 @@ export default function FeaturedCarousel({ items }: FeaturedCarouselProps) {
         snapToInterval={CARD_WIDTH + 12}
         snapToAlignment="start"
       >
-        {items.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            activeOpacity={0.9}
-            onPress={() => router.push(`/listing/${item.id}`)}
-            style={[styles.card, Shadows.large]}
-          >
-            <Image
-              source={{ uri: item.thumbnail || item.images?.[0] }}
-              style={styles.image}
-              contentFit="cover"
-              placeholder={require('@/assets/images/car-placeholder.png')}
-              transition={400}
-            />
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.85)']}
-              style={styles.overlay}
+        {items.map((item) => {
+          const title = getListingTitle(item);
+          const imageUri = getListingImage(item.images);
+          const variantName = item.variant?.name || '';
+
+          return (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.9}
+              onPress={() => router.push(`/listing/${item.id}`)}
+              style={[styles.card, Shadows.large]}
             >
-              <View style={styles.cardContent}>
-                <View style={styles.badgeRow}>
-                  <View style={styles.yearBadge}>
-                    <Text style={styles.yearText}>{item.year}</Text>
-                  </View>
-                  {item.isBoosted && (
-                    <View style={styles.boostBadge}>
-                      <Ionicons name="rocket" size={12} color={Colors.white} />
-                      <Text style={styles.boostText}>Boosted</Text>
+              <Image
+                source={imageUri ? { uri: imageUri } : require('@/assets/images/car-placeholder.png')}
+                style={styles.image}
+                contentFit="cover"
+                transition={400}
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.85)']}
+                style={styles.overlay}
+              >
+                <View style={styles.cardContent}>
+                  <View style={styles.badgeRow}>
+                    <View style={styles.yearBadge}>
+                      <Text style={styles.yearText}>{item.year}</Text>
                     </View>
-                  )}
-                </View>
-                <Text style={styles.carTitle} numberOfLines={1}>
-                  {item.brand} {item.model}
-                </Text>
-                <Text style={styles.carVariant} numberOfLines={1}>
-                  {item.variant}
-                </Text>
-                <View style={styles.bottomRow}>
-                  <Text style={styles.carPrice}>{formatPrice(item.price)}</Text>
-                  <View style={styles.locationBadge}>
-                    <Ionicons name="location" size={12} color={Colors.white} />
-                    <Text style={styles.carLocation}>{item.location}</Text>
+                    <View style={styles.featuredBadge}>
+                      <Ionicons name="star" size={12} color={Colors.white} />
+                      <Text style={styles.featuredText}>Unggulan</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.carTitle} numberOfLines={1}>
+                    {title}
+                  </Text>
+                  {variantName ? (
+                    <Text style={styles.carVariant} numberOfLines={1}>
+                      {variantName}
+                    </Text>
+                  ) : null}
+                  <View style={styles.bottomRow}>
+                    <Text style={styles.carPrice}>{formatRupiah(item.price)}</Text>
+                    <View style={styles.locationBadge}>
+                      <Ionicons name="location" size={12} color={Colors.white} />
+                      <Text style={styles.carLocation}>{item.locationCity}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        ))}
+              </LinearGradient>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -186,16 +185,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.white,
   },
-  boostBadge: {
+  featuredBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.accent,
+    backgroundColor: Colors.warning,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 8,
   },
-  boostText: {
+  featuredText: {
     fontSize: 12,
     fontWeight: '700',
     color: Colors.white,

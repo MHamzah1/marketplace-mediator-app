@@ -1,12 +1,7 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-} from "react";
-import axiosInstance from "@/lib/api/axiosInstance";
-import { User } from "@/types";
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import axiosInstance from '@/lib/api/axiosInstance';
+import * as SecureStore from 'expo-secure-store';
+import type { User } from '@/types';
 
 interface AuthState {
   user: User | null;
@@ -16,21 +11,14 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  register: (data: {
-    fullName: string;
-    email: string;
-    password: string;
-    phone?: string;
-  }) => Promise<void>;
+  register: (data: { fullName: string; email: string; password: string; phoneNumber?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AuthState>({
     user: null,
     isLoggedIn: false,
@@ -39,19 +27,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const loadUser = useCallback(async () => {
     try {
-      const SecureStore = await import("expo-secure-store");
-      const token = await SecureStore.getItemAsync("accessToken");
+      const token = await SecureStore.getItemAsync('accessToken');
       if (token) {
-        const response = await axiosInstance.get("/users/profile");
-        setState({
-          user: response.data.data || response.data,
-          isLoggedIn: true,
-          loading: false,
-        });
+        const response = await axiosInstance.get('/users/profile');
+        const userData = response.data?.data ?? response.data;
+        setState({ user: userData, isLoggedIn: true, loading: false });
       } else {
         setState({ user: null, isLoggedIn: false, loading: false });
       }
     } catch {
+      // Token invalid or expired
+      try {
+        await SecureStore.deleteItemAsync('accessToken');
+      } catch {}
       setState({ user: null, isLoggedIn: false, loading: false });
     }
   }, []);
@@ -61,50 +49,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [loadUser]);
 
   const login = async (email: string, password: string) => {
-    const response = await axiosInstance.post("/auth/login", {
-      email,
-      password,
-    });
-    const { accessToken, user } = response.data.data || response.data;
-    try {
-      const SecureStore = await import("expo-secure-store");
-      await SecureStore.setItemAsync("accessToken", accessToken);
-    } catch {
-      // Web fallback
+    const response = await axiosInstance.post('/auth/login', { email, password });
+    const payload = response.data?.data ?? response.data;
+    const accessToken = payload?.accessToken || payload?.access_token;
+
+    if (!accessToken) {
+      throw new Error('Server tidak mengembalikan access token');
     }
-    setState({ user, isLoggedIn: true, loading: false });
+
+    await SecureStore.setItemAsync('accessToken', accessToken);
+
+    // Fetch user profile after login
+    const profileRes = await axiosInstance.get('/users/profile');
+    const userData = profileRes.data?.data ?? profileRes.data;
+
+    setState({ user: userData, isLoggedIn: true, loading: false });
   };
 
-  const register = async (data: {
-    fullName: string;
-    email: string;
-    password: string;
-    phone?: string;
-  }) => {
-    await axiosInstance.post("/auth/register", data);
+  const register = async (data: { fullName: string; email: string; password: string; phoneNumber?: string }) => {
+    await axiosInstance.post('/auth/register', data);
   };
 
   const logout = async () => {
+    // No backend logout endpoint - just clear token locally
     try {
-      await axiosInstance.post("/auth/logout");
-    } catch {
-      // Ignore logout API errors
-    }
-    try {
-      const SecureStore = await import("expo-secure-store");
-      await SecureStore.deleteItemAsync("accessToken");
-    } catch {
-      // Web fallback
-    }
+      await SecureStore.deleteItemAsync('accessToken');
+    } catch {}
     setState({ user: null, isLoggedIn: false, loading: false });
   };
 
-  const refreshUser = loadUser;
-
   return (
-    <AuthContext.Provider
-      value={{ ...state, login, register, logout, refreshUser }}
-    >
+    <AuthContext.Provider value={{ ...state, login, register, logout, refreshUser: loadUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -112,9 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
 

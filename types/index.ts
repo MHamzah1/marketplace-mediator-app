@@ -1,91 +1,246 @@
-export interface User {
-  id: string;
-  email: string;
-  fullName: string;
-  phone?: string;
-  avatar?: string;
-  role?: string;
-  rolePosition?: {
-    roleUser?: {
-      name: string;
-    };
-  };
+// ============ Generic API Response ============
+
+export interface ApiResponse<T> {
+  message: string;
+  data: T;
 }
 
-export interface CarListing {
-  id: string;
-  title: string;
-  brand: string;
-  model: string;
-  variant?: string;
-  year: number;
-  price: number;
-  mileage: number;
-  fuelType: string;
-  transmission: string;
-  color: string;
-  location: string;
-  images: string[];
-  thumbnail?: string;
-  description?: string;
-  condition: 'baru' | 'bekas';
-  status: 'active' | 'sold' | 'reserved';
-  seller?: {
-    id: string;
-    name: string;
-    avatar?: string;
-    verified?: boolean;
-  };
-  features?: string[];
-  isFeatured?: boolean;
-  isBoosted?: boolean;
-  createdAt: string;
-  updatedAt: string;
+export interface PaginatedResponse<T> {
+  message: string;
+  data: T[];
+  pagination: Pagination;
 }
+
+export interface Pagination {
+  page: number;
+  pageSize: number;
+  totalRecords: number;
+  totalPages: number;
+}
+
+// ============ Entity Types (matching backend) ============
 
 export interface Brand {
   id: string;
   name: string;
   logo?: string;
+  isActive?: boolean;
 }
 
 export interface CarModel {
   id: string;
-  name: string;
-  brandId: string;
+  modelName: string;
+  description?: string;
+  basePrice?: number;
+  imageUrl?: string;
+  brand: Brand;
 }
 
-export interface CalculatorInput {
-  carPrice: number;
-  downPaymentPercent: number;
-  loanTermMonths: number;
-  interestRate: number;
-}
-
-export interface CalculatorResult {
-  monthlyPayment: number;
-  totalPayment: number;
-  totalInterest: number;
-  downPaymentAmount: number;
-  loanAmount: number;
-}
-
-export interface InspectionRequest {
+export interface Variant {
   id: string;
-  packageId: string;
-  vehicleInfo: {
-    brand: string;
-    model: string;
-    year: number;
-    plateNumber: string;
-  };
-  location: string;
-  scheduledDate: string;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
-  inspectorName?: string;
-  reportUrl?: string;
-  createdAt: string;
+  name: string;
+  transmissionType: string;
+  engineCapacity?: string;
+  isActive: boolean;
+  modelId: string;
+  model?: CarModel;
 }
+
+export interface YearPrice {
+  id: string;
+  year: number;
+  price: number;
+  isActive: boolean;
+  variantId: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  phoneNumber?: string;
+  whatsappNumber?: string;
+  location?: string;
+  profileImage?: string;
+  role?: string;
+  rolePosition?: {
+    id: string;
+    name: string;
+    roleUser: { id: string; name: string };
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Listing {
+  id: string;
+  sellerId: string;
+  seller: User;
+  carModelId: string;
+  carModel: CarModel;
+  variantId?: string;
+  variant?: Variant;
+  yearPriceId?: string;
+  yearPrice?: YearPrice;
+  year: number;
+  price: number;
+  mileage: number;
+  transmission: string;
+  fuelType: string;
+  color: string;
+  locationCity: string;
+  locationProvince: string;
+  description: string;
+  condition: string;
+  ownershipStatus?: string;
+  taxStatus?: string;
+  images: string[];
+  sellerWhatsapp: string;
+  isActive: boolean;
+  viewCount: number;
+  contactClickCount: number;
+  isFeatured: boolean;
+  featuredUntil?: string;
+  featuredPriority: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============ WhatsApp ============
+
+export interface WhatsAppLinkResponse {
+  message: string;
+  whatsappUrl: string;
+  sellerPhone: string;
+  preFilledMessage: string;
+  seller: { name: string; location: string };
+  listing: { id: string; carBrand: string; carModel: string; year: number; price: number };
+}
+
+// ============ Seller Profile ============
+
+export interface SellerProfile {
+  id: string;
+  fullName: string;
+  phoneNumber?: string;
+  whatsappNumber?: string;
+  location?: string;
+  createdAt: string;
+  totalListings: number;
+}
+
+// ============ My Listings ============
+
+export interface MyListingsSummary {
+  totalActiveListings: number;
+  totalInactiveListings: number;
+  totalViews: number;
+  totalContactClicks: number;
+}
+
+export interface MyListingsResponse {
+  message: string;
+  data: Listing[];
+  pagination: Pagination;
+  summary: MyListingsSummary;
+}
+
+// ============ Filters ============
+
+export interface FilterParams {
+  page?: number;
+  perPage?: number;
+  search?: string;
+  brandId?: string;
+  carModelId?: string;
+  variantId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  yearMin?: number;
+  yearMax?: number;
+  transmission?: string;
+  fuelType?: string;
+  locationCity?: string;
+  locationProvince?: string;
+  condition?: string;
+  sortBy?: string;
+  isActive?: boolean;
+  sellerId?: string;
+}
+
+// ============ Create / Update Listing ============
+
+export interface CreateListingPayload {
+  variantId: string;
+  yearPriceId: string;
+  price: number;
+  mileage: number;
+  fuelType: string;
+  color: string;
+  locationCity: string;
+  locationProvince: string;
+  description: string;
+  condition?: string;
+  ownershipStatus?: string;
+  taxStatus?: string;
+  sellerWhatsapp: string;
+  transmission?: string;
+}
+
+// ============ Calculator ============
+
+export interface CalculatorOptions {
+  brands: { id: string; name: string; logo?: string }[];
+  years: number[];
+}
+
+export interface ModelsByBrand {
+  brandId: string;
+  brandName: string;
+  models: { id: string; modelName: string; imageUrl?: string }[];
+}
+
+export interface YearsByVariant {
+  variantId: string;
+  variantName: string;
+  modelName: string;
+  brandName: string;
+  years: number[];
+  basePrice?: number;
+}
+
+export interface PriceBreakdownAdjustment {
+  category: string;
+  name: string;
+  amount: number;
+}
+
+export interface CalculationResult {
+  calculation: { id: string; calculatedAt: string };
+  car: {
+    brandId: string;
+    brandName: string;
+    modelId: string;
+    modelName: string;
+    variantId: string;
+    variantName: string;
+    year: number;
+  };
+  conditions: {
+    transmission: { code: string; name: string };
+    ownership: { code: string; name: string };
+    color: { code: string; name: string; colorHex: string };
+  };
+  priceBreakdown: {
+    basePrice: number;
+    adjustments: PriceBreakdownAdjustment[];
+    totalAdjustments: number;
+  };
+  finalPrice: number;
+  priceRange: { min: number; max: number; note: string };
+}
+
+// ============ Inspection ============
 
 export interface InspectionPackage {
   id: string;
@@ -93,20 +248,6 @@ export interface InspectionPackage {
   price: number;
   duration: string;
   points: number;
-  popular?: boolean;
   features: readonly string[];
-}
-
-export interface ApiResponse<T> {
-  data: T;
-  message?: string;
-  statusCode: number;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  popular?: boolean;
 }

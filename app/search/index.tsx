@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,133 +14,172 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors, { Shadows } from '@/constants/Colors';
 import SearchBar from '@/components/marketplace/SearchBar';
 import ListingCard from '@/components/marketplace/ListingCard';
-import { CarListing } from '@/types';
-
-const POPULAR_BRANDS = [
-  { id: '1', name: 'Toyota', icon: 'car-sport' as const },
-  { id: '2', name: 'Honda', icon: 'car' as const },
-  { id: '3', name: 'Mitsubishi', icon: 'car-sport-outline' as const },
-  { id: '4', name: 'Suzuki', icon: 'car-outline' as const },
-  { id: '5', name: 'Daihatsu', icon: 'car' as const },
-  { id: '6', name: 'Hyundai', icon: 'car-sport' as const },
-];
-
-const RECENT_SEARCHES = [
-  'Toyota Fortuner 2023',
-  'Honda CR-V Turbo',
-  'Mobil bekas Jakarta',
-  'SUV diesel automatic',
-];
-
-const ALL_LISTINGS: CarListing[] = [
-  {
-    id: '10',
-    title: 'Toyota Rush GR',
-    brand: 'Toyota',
-    model: 'Rush',
-    variant: 'GR Sport AT',
-    year: 2023,
-    price: 305000000,
-    mileage: 8000,
-    fuelType: 'Bensin',
-    transmission: 'Automatic',
-    color: 'Putih',
-    location: 'Jakarta',
-    images: ['https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800'],
-    thumbnail: 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=400',
-    condition: 'bekas',
-    status: 'active',
-    createdAt: '2024-01-01',
-    updatedAt: '2024-01-01',
-  },
-  {
-    id: '11',
-    title: 'Honda Jazz RS',
-    brand: 'Honda',
-    model: 'Jazz',
-    variant: 'RS CVT',
-    year: 2022,
-    price: 265000000,
-    mileage: 20000,
-    fuelType: 'Bensin',
-    transmission: 'CVT',
-    color: 'Merah',
-    location: 'Bandung',
-    images: ['https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800'],
-    thumbnail: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=400',
-    condition: 'bekas',
-    status: 'active',
-    createdAt: '2024-01-01',
-    updatedAt: '2024-01-01',
-  },
-];
+import EmptyState from '@/components/ui/EmptyState';
+import type { Listing, Pagination, Brand } from '@/types';
+import { fetchListings } from '@/lib/api/marketplaceService';
+import { fetchBrands } from '@/lib/api/brandService';
+import { resolveImageUrl } from '@/lib/utils';
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [brands, setBrands] = useState<Brand[]>([]);
 
-  const filteredResults = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
-    return ALL_LISTINGS.filter(
-      (item) =>
-        item.brand.toLowerCase().includes(q) ||
-        item.model.toLowerCase().includes(q) ||
-        item.title.toLowerCase().includes(q),
-    );
-  }, [query]);
+  // Search results
+  const [results, setResults] = useState<Listing[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [searched, setSearched] = useState(false);
 
-  const hasQuery = query.trim().length > 0;
+  // Filter state
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [selectedTransmission, setSelectedTransmission] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<string>('newest');
+
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    fetchBrands().then(setBrands).catch(() => {});
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (!query.trim() && !selectedBrandId) {
+      setResults([]);
+      setSearched(false);
+      return;
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      setPage(1);
+      doSearch(1, false);
+    }, 400);
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [query, selectedBrandId, selectedTransmission, sortBy]);
+
+  const doSearch = useCallback(async (pageNum: number, append: boolean) => {
+    try {
+      if (!append) setLoading(true);
+      else setLoadingMore(true);
+
+      const params: Record<string, unknown> = {
+        page: pageNum,
+        perPage: 15,
+      };
+      if (query.trim()) params.search = query.trim();
+      if (selectedBrandId) params.brandId = selectedBrandId;
+      if (selectedTransmission) params.transmission = selectedTransmission;
+      if (sortBy) params.sortBy = sortBy;
+
+      const res = await fetchListings(params as never);
+      const items = res.data ?? [];
+
+      if (append) {
+        setResults((prev) => [...prev, ...items]);
+      } else {
+        setResults(items);
+      }
+      setPagination(res.pagination ?? null);
+      setSearched(true);
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [query, selectedBrandId, selectedTransmission, sortBy]);
+
+  const onEndReached = useCallback(() => {
+    if (loadingMore || loading) return;
+    if (pagination && page < pagination.totalPages) {
+      const next = page + 1;
+      setPage(next);
+      doSearch(next, true);
+    }
+  }, [loadingMore, loading, pagination, page, doSearch]);
+
+  const handleBrandPress = (brandId: string) => {
+    setSelectedBrandId((prev) => (prev === brandId ? null : brandId));
+  };
+
+  const hasQuery = query.trim().length > 0 || !!selectedBrandId;
+
+  const transmissions = ['Automatic', 'Manual', 'CVT'];
+  const sortOptions = [
+    { value: 'newest', label: 'Terbaru' },
+    { value: 'price_asc', label: 'Harga Terendah' },
+    { value: 'price_desc', label: 'Harga Tertinggi' },
+    { value: 'year_desc', label: 'Tahun Terbaru' },
+  ];
+
+  const renderFilters = () => (
+    <View>
+      {/* Transmission filter */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+        {transmissions.map((t) => (
+          <TouchableOpacity
+            key={t}
+            style={[styles.filterChip, selectedTransmission === t && styles.filterChipActive]}
+            onPress={() => setSelectedTransmission((prev) => (prev === t ? null : t))}
+          >
+            <Text style={[styles.filterChipText, selectedTransmission === t && styles.filterChipTextActive]}>
+              {t}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        <View style={styles.filterDivider} />
+        {sortOptions.map((s) => (
+          <TouchableOpacity
+            key={s.value}
+            style={[styles.filterChip, sortBy === s.value && styles.filterChipActive]}
+            onPress={() => setSortBy(s.value)}
+          >
+            <Text style={[styles.filterChipText, sortBy === s.value && styles.filterChipTextActive]}>
+              {s.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      {/* Popular Brands */}
+      {/* Popular Brands from API */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Merk Populer</Text>
         <View style={styles.brandsGrid}>
-          {POPULAR_BRANDS.map((brand) => (
+          {brands.slice(0, 8).map((brand) => (
             <TouchableOpacity
               key={brand.id}
-              style={[styles.brandChip, Shadows.small]}
-              onPress={() => setQuery(brand.name)}
+              style={[
+                styles.brandChip,
+                Shadows.small,
+                selectedBrandId === brand.id && styles.brandChipActive,
+              ]}
+              onPress={() => handleBrandPress(brand.id)}
             >
-              <View style={styles.brandIconBg}>
-                <Ionicons name={brand.icon} size={20} color={Colors.primary} />
-              </View>
-              <Text style={styles.brandName}>{brand.name}</Text>
+              {brand.logo ? (
+                <View style={styles.brandIconBg}>
+                  <Ionicons name="car" size={20} color={Colors.primary} />
+                </View>
+              ) : (
+                <View style={styles.brandIconBg}>
+                  <Text style={styles.brandInitial}>{brand.name.charAt(0)}</Text>
+                </View>
+              )}
+              <Text style={[styles.brandName, selectedBrandId === brand.id && styles.brandNameActive]}>
+                {brand.name}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
-
-      {/* Recent Searches */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Pencarian Terbaru</Text>
-        {RECENT_SEARCHES.map((term, i) => (
-          <TouchableOpacity
-            key={i}
-            style={styles.recentItem}
-            onPress={() => setQuery(term)}
-          >
-            <Ionicons name="time-outline" size={18} color={Colors.textTertiary} />
-            <Text style={styles.recentText}>{term}</Text>
-            <Ionicons name="arrow-forward-outline" size={16} color={Colors.textTertiary} />
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderNoResults = () => (
-    <View style={styles.noResultsContainer}>
-      <View style={styles.noResultsIcon}>
-        <Ionicons name="search-outline" size={48} color={Colors.textTertiary} />
-      </View>
-      <Text style={styles.noResultsTitle}>Tidak Ditemukan</Text>
-      <Text style={styles.noResultsText}>
-        Coba gunakan kata kunci yang berbeda
-      </Text>
     </View>
   );
 
@@ -147,10 +187,7 @@ export default function SearchScreen() {
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       {/* Search Header */}
       <View style={styles.searchHeader}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
@@ -168,19 +205,45 @@ export default function SearchScreen() {
         <ScrollView showsVerticalScrollIndicator={false}>
           {renderEmptyState()}
         </ScrollView>
-      ) : filteredResults.length === 0 ? (
-        renderNoResults()
       ) : (
         <FlatList
-          data={filteredResults}
+          data={results}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <ListingCard item={item} variant="horizontal" />}
-          contentContainerStyle={{ paddingTop: 12, paddingBottom: insets.bottom + 40 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
           showsVerticalScrollIndicator={false}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.3}
           ListHeaderComponent={
-            <Text style={styles.resultCount}>
-              {filteredResults.length} hasil ditemukan
-            </Text>
+            <View>
+              {renderFilters()}
+              {searched && !loading && (
+                <Text style={styles.resultCount}>
+                  {pagination ? `${pagination.totalRecords} hasil ditemukan` : ''}
+                </Text>
+              )}
+            </View>
+          }
+          ListEmptyComponent={
+            loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={styles.loadingText}>Mencari...</Text>
+              </View>
+            ) : searched ? (
+              <EmptyState
+                icon="search-outline"
+                title="Tidak Ditemukan"
+                subtitle="Coba gunakan kata kunci atau filter yang berbeda"
+              />
+            ) : null
+          }
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+              </View>
+            ) : null
           }
         />
       )}
@@ -209,12 +272,61 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Shadows.small,
   },
+  filterRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    alignItems: 'center',
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  filterChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  filterChipTextActive: {
+    color: Colors.white,
+  },
+  filterDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: Colors.border,
+    marginHorizontal: 4,
+  },
   resultCount: {
     paddingHorizontal: 20,
     paddingBottom: 10,
+    paddingTop: 4,
     fontSize: 13,
     fontWeight: '600',
     color: Colors.textTertiary,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: Colors.textTertiary,
+    fontWeight: '500',
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
   },
   emptyContainer: {
     padding: 20,
@@ -243,6 +355,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
   },
+  brandChipActive: {
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
   brandIconBg: {
     width: 36,
     height: 36,
@@ -251,49 +368,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  brandInitial: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
   brandName: {
     fontSize: 14,
     fontWeight: '700',
     color: Colors.text,
   },
-  recentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  recentText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '500',
-    color: Colors.textSecondary,
-  },
-  noResultsContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  noResultsIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: Colors.backgroundSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  noResultsTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  noResultsText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.textTertiary,
-    marginTop: 4,
+  brandNameActive: {
+    color: Colors.primary,
   },
 });
