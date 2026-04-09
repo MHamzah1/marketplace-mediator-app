@@ -21,6 +21,8 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import type { Listing } from '@/types';
 import { fetchListingDetail, getWhatsAppLink } from '@/lib/api/marketplaceService';
+import { requireAuth } from '@/lib/auth/requireAuth';
+import { useAuth } from '@/context/AuthContext';
 import {
   formatRupiahFull,
   formatMileage,
@@ -37,6 +39,7 @@ export default function ListingDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { isLoggedIn } = useAuth();
 
   const [car, setCar] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,6 +78,16 @@ export default function ListingDetailScreen() {
 
   const handleContact = async () => {
     if (!car) return;
+    if (
+      !requireAuth(router, isLoggedIn, {
+        redirectTo: `/listing/${car.id}`,
+        reason: 'whatsapp',
+        message: 'Masuk dulu untuk melihat nomor dan menghubungi penjual via WhatsApp.',
+      })
+    ) {
+      return;
+    }
+
     try {
       setContacting(true);
       const res = await getWhatsAppLink(car.id);
@@ -318,7 +331,7 @@ export default function ListingDetailScreen() {
           >
             <Ionicons name="logo-whatsapp" size={20} color={Colors.white} />
             <Text style={styles.contactBtnText}>
-              {contacting ? 'Memuat...' : 'WhatsApp'}
+              {contacting ? 'Memuat...' : isLoggedIn ? 'WhatsApp' : 'Masuk untuk WhatsApp'}
             </Text>
           </LinearGradient>
         </TouchableOpacity>

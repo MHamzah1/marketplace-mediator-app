@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
@@ -20,10 +19,15 @@ import {
   getModelsByBrand,
   getVariantsByModel,
   getYearsByVariant,
+  getPriceAdjustmentsByModel,
   calculatePrice,
 } from '@/lib/api/calculatorService';
 import { formatRupiahFull } from '@/lib/utils';
-import type { CalculationResult, Variant } from '@/types';
+import type {
+  CalculationResult,
+  Variant,
+  PriceAdjustmentOption,
+} from '@/types';
 
 interface SelectOption {
   id: string;
@@ -46,18 +50,26 @@ export default function CalculatorScreen() {
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
   // Condition inputs
-  const [transmission, setTransmission] = useState('AT');
-  const [ownership, setOwnership] = useState('first');
-  const [color, setColor] = useState('common');
+  const [ownership, setOwnership] = useState('');
+  const [color, setColor] = useState('');
+  const [feature, setFeature] = useState('');
+
+  const [ownershipOptions, setOwnershipOptions] = useState<PriceAdjustmentOption[]>([]);
+  const [colorOptions, setColorOptions] = useState<PriceAdjustmentOption[]>([]);
+  const [featureOptions, setFeatureOptions] = useState<PriceAdjustmentOption[]>([]);
 
   // State
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingVariants, setLoadingVariants] = useState(false);
+  const [loadingAdjustments, setLoadingAdjustments] = useState(false);
   const [loadingYears, setLoadingYears] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const pickDefaultOption = (options: PriceAdjustmentOption[]) =>
+    options.find((option) => option.isBaseline) || options[0];
 
   // Load brand options
   useEffect(() => {
@@ -76,6 +88,13 @@ export default function CalculatorScreen() {
     if (!selectedBrand) {
       setModelOptions([]);
       setSelectedModel('');
+      setOwnershipOptions([]);
+      setColorOptions([]);
+      setFeatureOptions([]);
+      setOwnership('');
+      setColor('');
+      setFeature('');
+      setLoadingAdjustments(false);
       return;
     }
     setLoadingModels(true);
@@ -100,21 +119,59 @@ export default function CalculatorScreen() {
     if (!selectedModel) {
       setVariantOptions([]);
       setSelectedVariant('');
+      setOwnershipOptions([]);
+      setColorOptions([]);
+      setFeatureOptions([]);
+      setOwnership('');
+      setColor('');
+      setFeature('');
+      setLoadingAdjustments(false);
       return;
     }
     setLoadingVariants(true);
+    setLoadingAdjustments(true);
     setSelectedVariant('');
     setYearOptions([]);
     setSelectedYear(null);
     setResult(null);
-    getVariantsByModel(selectedModel)
-      .then((data: Variant[]) => {
+    setError(null);
+    Promise.all([
+      getVariantsByModel(selectedModel),
+      getPriceAdjustmentsByModel(selectedModel),
+    ])
+      .then(([variants, adjustments]: [Variant[], Awaited<ReturnType<typeof getPriceAdjustmentsByModel>>]) => {
         setVariantOptions(
-          (data || []).map((v) => ({ id: v.id, label: v.name })),
+          (variants || []).map((variant) => ({
+            id: variant.id,
+            label: variant.name,
+          })),
         );
+
+        const nextOwnershipOptions = adjustments.adjustments.ownership || [];
+        const nextColorOptions = adjustments.adjustments.color || [];
+        const nextFeatureOptions = adjustments.adjustments.feature || [];
+
+        setOwnershipOptions(nextOwnershipOptions);
+        setColorOptions(nextColorOptions);
+        setFeatureOptions(nextFeatureOptions);
+
+        setOwnership(pickDefaultOption(nextOwnershipOptions)?.code || '');
+        setColor(pickDefaultOption(nextColorOptions)?.code || '');
+        setFeature(pickDefaultOption(nextFeatureOptions)?.code || '');
       })
-      .catch(() => {})
-      .finally(() => setLoadingVariants(false));
+      .catch(() => {
+        setOwnershipOptions([]);
+        setColorOptions([]);
+        setFeatureOptions([]);
+        setOwnership('');
+        setColor('');
+        setFeature('');
+        setError('Konfigurasi kalkulator untuk model ini belum tersedia.');
+      })
+      .finally(() => {
+        setLoadingVariants(false);
+        setLoadingAdjustments(false);
+      });
   }, [selectedModel]);
 
   // Load years when variant changes
@@ -122,6 +179,7 @@ export default function CalculatorScreen() {
     if (!selectedVariant) {
       setYearOptions([]);
       setSelectedYear(null);
+      setLoadingYears(false);
       return;
     }
     setLoadingYears(true);
@@ -135,7 +193,9 @@ export default function CalculatorScreen() {
       .finally(() => setLoadingYears(false));
   }, [selectedVariant]);
 
-  const canCalculate = selectedVariant && selectedYear;
+  const canCalculate = Boolean(
+    selectedVariant && selectedYear && ownership && color && feature,
+  );
 
   const handleCalculate = async () => {
     if (!canCalculate) return;
@@ -145,9 +205,9 @@ export default function CalculatorScreen() {
       const res = await calculatePrice({
         variantId: selectedVariant,
         year: selectedYear!,
-        transmissionCode: transmission,
         ownershipCode: ownership,
         colorCode: color,
+        featureCode: feature,
       });
       setResult(res);
     } catch (err: unknown) {
@@ -157,23 +217,6 @@ export default function CalculatorScreen() {
       setCalculating(false);
     }
   };
-
-  const transmissionOptions = [
-    { code: 'AT', label: 'Automatic' },
-    { code: 'MT', label: 'Manual' },
-  ];
-
-  const ownershipOptions = [
-    { code: 'first', label: 'Tangan 1' },
-    { code: 'second', label: 'Tangan 2' },
-    { code: 'third_plus', label: 'Tangan 3+' },
-  ];
-
-  const colorOptions = [
-    { code: 'common', label: 'Umum' },
-    { code: 'popular', label: 'Populer' },
-    { code: 'rare', label: 'Langka' },
-  ];
 
   return (
     <KeyboardAvoidingView
@@ -300,50 +343,62 @@ export default function CalculatorScreen() {
               <Text style={styles.cardTitle}>Kondisi</Text>
             </View>
 
-            <Text style={styles.fieldLabel}>Transmisi</Text>
-            <View style={styles.chipRow}>
-              {transmissionOptions.map((t) => (
-                <TouchableOpacity
-                  key={t.code}
-                  style={[styles.chip, transmission === t.code && styles.chipActive]}
-                  onPress={() => setTransmission(t.code)}
-                >
-                  <Text style={[styles.chipText, transmission === t.code && styles.chipTextActive]}>
-                    {t.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
             <Text style={styles.fieldLabel}>Kepemilikan</Text>
-            <View style={styles.chipRow}>
-              {ownershipOptions.map((o) => (
-                <TouchableOpacity
-                  key={o.code}
-                  style={[styles.chip, ownership === o.code && styles.chipActive]}
-                  onPress={() => setOwnership(o.code)}
-                >
-                  <Text style={[styles.chipText, ownership === o.code && styles.chipTextActive]}>
-                    {o.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {loadingAdjustments ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <View style={styles.chipRow}>
+                {ownershipOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[styles.chip, ownership === option.code && styles.chipActive]}
+                    onPress={() => setOwnership(option.code)}
+                  >
+                    <Text style={[styles.chipText, ownership === option.code && styles.chipTextActive]}>
+                      {option.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             <Text style={styles.fieldLabel}>Warna</Text>
-            <View style={styles.chipRow}>
-              {colorOptions.map((c) => (
-                <TouchableOpacity
-                  key={c.code}
-                  style={[styles.chip, color === c.code && styles.chipActive]}
-                  onPress={() => setColor(c.code)}
-                >
-                  <Text style={[styles.chipText, color === c.code && styles.chipTextActive]}>
-                    {c.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {loadingAdjustments ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <View style={styles.chipRow}>
+                {colorOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[styles.chip, color === option.code && styles.chipActive]}
+                    onPress={() => setColor(option.code)}
+                  >
+                    <Text style={[styles.chipText, color === option.code && styles.chipTextActive]}>
+                      {option.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <Text style={styles.fieldLabel}>Fitur Tambahan</Text>
+            {loadingAdjustments ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <View style={styles.chipRow}>
+                {featureOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.id}
+                    style={[styles.chip, feature === option.code && styles.chipActive]}
+                    onPress={() => setFeature(option.code)}
+                  >
+                    <Text style={[styles.chipText, feature === option.code && styles.chipTextActive]}>
+                      {option.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
 
           {/* Calculate Button */}

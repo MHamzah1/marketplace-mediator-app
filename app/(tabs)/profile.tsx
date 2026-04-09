@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors, { Shadows } from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
+import { requireAuth } from '@/lib/auth/requireAuth';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -52,8 +53,13 @@ export default function ProfileScreen() {
           subtitle: 'Kelola iklan mobil Anda',
           color: Colors.primary,
           onPress: () => {
-            if (!isLoggedIn) {
-              router.push('/(auth)/login');
+            if (
+              !requireAuth(router, isLoggedIn, {
+                redirectTo: '/my-listings',
+                reason: 'manage-listings',
+                message: 'Masuk dulu untuk melihat dan mengelola listing Anda.',
+              })
+            ) {
               return;
             }
             router.push('/my-listings');
@@ -65,8 +71,13 @@ export default function ProfileScreen() {
           subtitle: 'Jual mobil Anda',
           color: Colors.success,
           onPress: () => {
-            if (!isLoggedIn) {
-              router.push('/(auth)/login');
+            if (
+              !requireAuth(router, isLoggedIn, {
+                redirectTo: '/create-listing',
+                reason: 'sell',
+                message: 'Masuk dulu untuk memasang iklan dan mulai berjualan.',
+              })
+            ) {
               return;
             }
             router.push('/create-listing');

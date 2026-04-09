@@ -13,14 +13,19 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors, { Shadows } from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
+import { buildLoginRoute } from '@/lib/auth/requireAuth';
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { redirectTo, reason } = useLocalSearchParams<{
+    redirectTo?: string;
+    reason?: 'whatsapp' | 'sell' | 'manage-listings' | 'protected';
+  }>();
   const { register } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -52,7 +57,18 @@ export default function RegisterScreen() {
         phoneNumber: phone.trim() || undefined,
       });
       Alert.alert('Berhasil', 'Akun berhasil dibuat! Silakan masuk.', [
-        { text: 'OK', onPress: () => router.replace('/(auth)/login') },
+        {
+          text: 'OK',
+          onPress: () =>
+            router.replace(
+              buildLoginRoute(
+                typeof redirectTo === 'string' && redirectTo.length > 0
+                  ? redirectTo
+                  : '/(tabs)/marketplace',
+                reason || 'protected',
+              ) as never,
+            ),
+        },
       ]);
     } catch (error: any) {
       Alert.alert(
@@ -221,7 +237,18 @@ export default function RegisterScreen() {
           {/* Login Link */}
           <View style={styles.loginRow}>
             <Text style={styles.loginText}>Sudah punya akun? </Text>
-            <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
+            <TouchableOpacity
+              onPress={() =>
+                router.replace(
+                  buildLoginRoute(
+                    typeof redirectTo === 'string' && redirectTo.length > 0
+                      ? redirectTo
+                      : '/(tabs)/marketplace',
+                    reason || 'protected',
+                  ) as never,
+                )
+              }
+            >
               <Text style={styles.loginLink}>Masuk</Text>
             </TouchableOpacity>
           </View>

@@ -39,6 +39,7 @@ export interface CarModel {
 export interface Variant {
   id: string;
   name: string;
+  variantName?: string;
   transmissionType: string;
   engineCapacity?: string;
   isActive: boolean;
@@ -52,6 +53,12 @@ export interface YearPrice {
   price: number;
   isActive: boolean;
   variantId: string;
+}
+
+export interface YearPriceOption {
+  id: string;
+  year: number;
+  basePrice?: number;
 }
 
 export interface User {
@@ -206,6 +213,7 @@ export interface YearsByVariant {
   modelName: string;
   brandName: string;
   years: number[];
+  yearPrices: YearPriceOption[];
   basePrice?: number;
 }
 
@@ -227,9 +235,9 @@ export interface CalculationResult {
     year: number;
   };
   conditions: {
-    transmission: { code: string; name: string };
     ownership: { code: string; name: string };
     color: { code: string; name: string; colorHex: string };
+    feature: { code: string; name: string };
   };
   priceBreakdown: {
     basePrice: number;
@@ -238,6 +246,33 @@ export interface CalculationResult {
   };
   finalPrice: number;
   priceRange: { min: number; max: number; note: string };
+}
+
+export interface PriceAdjustmentOption {
+  id: string;
+  code: string;
+  name: string;
+  adjustmentValue: number;
+  isBaseline: boolean;
+  colorHex?: string;
+}
+
+export interface PriceAdjustmentGroups {
+  modelId: string;
+  modelName: string;
+  brandName: string;
+  adjustments: {
+    ownership: PriceAdjustmentOption[];
+    color: PriceAdjustmentOption[];
+    feature: PriceAdjustmentOption[];
+    condition: PriceAdjustmentOption[];
+    kilometer: PriceAdjustmentOption[];
+    accident_history: PriceAdjustmentOption[];
+    document: PriceAdjustmentOption[];
+    warranty: PriceAdjustmentOption[];
+    service_record: PriceAdjustmentOption[];
+    location: PriceAdjustmentOption[];
+  };
 }
 
 // ============ Inspection ============

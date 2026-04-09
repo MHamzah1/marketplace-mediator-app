@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,13 +18,21 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import Colors, { Shadows } from '@/constants/Colors';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import {
   getCalculatorOptions,
   getModelsByBrand,
   getVariantsByModel,
   getYearsByVariant,
 } from '@/lib/api/calculatorService';
-import { createListing, updateListing, fetchListingDetail } from '@/lib/api/marketplaceService';
+import {
+  createListing,
+  updateListing,
+  fetchMyListingDetail,
+} from '@/lib/api/marketplaceService';
+import { useAuth } from '@/context/AuthContext';
+import { redirectToLogin } from '@/lib/auth/requireAuth';
+import type { YearPriceOption } from '@/types';
 
 interface SelectOption {
   id: string;
@@ -35,13 +43,23 @@ export default function CreateListingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const { user, isLoggedIn, loading: authLoading } = useAuth();
   const isEdit = !!editId;
+  const loginRedirectedRef = useRef(false);
+  const editPrefillRef = useRef<{
+    brandId: string;
+    modelId: string;
+    variantId: string;
+    year: number | null;
+    yearPriceId: string;
+  } | null>(null);
 
   // Options
   const [brandOptions, setBrandOptions] = useState<SelectOption[]>([]);
   const [modelOptions, setModelOptions] = useState<SelectOption[]>([]);
   const [variantOptions, setVariantOptions] = useState<SelectOption[]>([]);
   const [yearOptions, setYearOptions] = useState<number[]>([]);
+  const [yearPriceOptions, setYearPriceOptions] = useState<YearPriceOption[]>([]);
 
   // Form
   const [selectedBrand, setSelectedBrand] = useState('');
@@ -65,7 +83,48 @@ export default function CreateListingScreen() {
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [loadingModels, setLoadingModels] = useState(false);
   const [loadingVariants, setLoadingVariants] = useState(false);
+  const [loadingEditData, setLoadingEditData] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const redirectTarget = editId
+    ? `/create-listing?editId=${editId}`
+    : '/create-listing';
+
+  const normalizeWhatsappNumber = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+
+    if (digits.startsWith('62')) {
+      return digits;
+    }
+
+    if (digits.startsWith('0')) {
+      return `62${digits.slice(1)}`;
+    }
+
+    if (digits.startsWith('8')) {
+      return `62${digits}`;
+    }
+
+    return digits;
+  };
+
+  useEffect(() => {
+    if (authLoading || isLoggedIn || loginRedirectedRef.current) return;
+
+    loginRedirectedRef.current = true;
+    Alert.alert(
+      'Login Diperlukan',
+      isEdit
+        ? 'Masuk dulu untuk mengubah listing Anda.'
+        : 'Masuk dulu untuk memasang iklan dan mulai berjualan.',
+      [
+        {
+          text: 'OK',
+          onPress: () => redirectToLogin(router, redirectTarget, 'sell', true),
+        },
+      ],
+    );
+  }, [authLoading, isEdit, isLoggedIn, redirectTarget, router]);
 
   useEffect(() => {
     getCalculatorOptions()
@@ -76,53 +135,144 @@ export default function CreateListingScreen() {
       .finally(() => setLoadingOptions(false));
   }, []);
 
+  useEffect(() => {
+    if (isEdit || sellerWhatsapp || !user?.whatsappNumber) return;
+    setSellerWhatsapp(user.whatsappNumber);
+  }, [isEdit, sellerWhatsapp, user?.whatsappNumber]);
+
   // Load edit data
   useEffect(() => {
-    if (!editId) return;
-    fetchListingDetail(editId).then((res) => {
-      const l = res.data;
-      if (!l) return;
-      setPrice(String(l.price));
-      setMileage(String(l.mileage));
-      setTransmission(l.transmission);
-      setFuelType(l.fuelType);
-      setColor(l.color);
-      setLocationCity(l.locationCity);
-      setLocationProvince(l.locationProvince);
-      setDescription(l.description);
-      setCondition(l.condition);
-      setSellerWhatsapp(l.sellerWhatsapp);
-    }).catch(() => {});
-  }, [editId]);
+    if (!editId || !isLoggedIn) return;
+
+    setLoadingEditData(true);
+    fetchMyListingDetail(editId)
+      .then((res) => {
+        const listing = res.data;
+        if (!listing) return;
+
+        editPrefillRef.current = {
+          brandId: listing.carModel?.brand?.id || '',
+          modelId: listing.carModelId,
+          variantId: listing.variantId || '',
+          year: listing.year ?? null,
+          yearPriceId: listing.yearPriceId || '',
+        };
+
+        setSelectedBrand(listing.carModel?.brand?.id || '');
+        setPrice(String(listing.price));
+        setMileage(String(listing.mileage));
+        setTransmission(listing.transmission);
+        setFuelType(listing.fuelType);
+        setColor(listing.color);
+        setLocationCity(listing.locationCity);
+        setLocationProvince(listing.locationProvince);
+        setDescription(listing.description);
+        setCondition(listing.condition);
+        setSellerWhatsapp(listing.sellerWhatsapp || user?.whatsappNumber || '');
+      })
+      .catch(() => {})
+      .finally(() => setLoadingEditData(false));
+  }, [editId, isLoggedIn, user?.whatsappNumber]);
 
   useEffect(() => {
-    if (!selectedBrand) { setModelOptions([]); setSelectedModel(''); return; }
+    if (!selectedBrand) {
+      setModelOptions([]);
+      setSelectedModel('');
+      return;
+    }
     setLoadingModels(true);
     setSelectedModel('');
     setVariantOptions([]);
     setSelectedVariant('');
+    setYearPriceOptions([]);
+    setYearOptions([]);
+    setSelectedYear(null);
+    setYearPriceId('');
     getModelsByBrand(selectedBrand)
-      .then((data) => setModelOptions((data.models || []).map((m) => ({ id: m.id, label: m.modelName }))))
+      .then((data) => {
+        setModelOptions((data.models || []).map((m) => ({ id: m.id, label: m.modelName })));
+
+        if (
+          editPrefillRef.current &&
+          editPrefillRef.current.brandId === selectedBrand &&
+          editPrefillRef.current.modelId
+        ) {
+          setSelectedModel(editPrefillRef.current.modelId);
+        }
+      })
       .catch(() => {})
       .finally(() => setLoadingModels(false));
   }, [selectedBrand]);
 
   useEffect(() => {
-    if (!selectedModel) { setVariantOptions([]); setSelectedVariant(''); return; }
+    if (!selectedModel) {
+      setVariantOptions([]);
+      setSelectedVariant('');
+      return;
+    }
     setLoadingVariants(true);
     setSelectedVariant('');
+    setYearPriceOptions([]);
+    setYearOptions([]);
+    setSelectedYear(null);
+    setYearPriceId('');
     getVariantsByModel(selectedModel)
-      .then((data: { id: string; name: string }[]) => setVariantOptions((data || []).map((v) => ({ id: v.id, label: v.name }))))
+      .then((data: { id: string; name: string }[]) => {
+        setVariantOptions((data || []).map((v) => ({ id: v.id, label: v.name })));
+
+        if (
+          editPrefillRef.current &&
+          editPrefillRef.current.modelId === selectedModel &&
+          editPrefillRef.current.variantId
+        ) {
+          setSelectedVariant(editPrefillRef.current.variantId);
+        }
+      })
       .catch(() => {})
       .finally(() => setLoadingVariants(false));
   }, [selectedModel]);
 
   useEffect(() => {
-    if (!selectedVariant) { setYearOptions([]); setSelectedYear(null); return; }
+    if (!selectedVariant) {
+      setYearOptions([]);
+      setYearPriceOptions([]);
+      setSelectedYear(null);
+      setYearPriceId('');
+      return;
+    }
     getYearsByVariant(selectedVariant)
-      .then((data) => setYearOptions(data.years || []))
+      .then((data) => {
+        setYearOptions(data.years || []);
+        setYearPriceOptions(data.yearPrices || []);
+
+        if (
+          editPrefillRef.current &&
+          editPrefillRef.current.variantId === selectedVariant
+        ) {
+          setSelectedYear(editPrefillRef.current.year);
+          setYearPriceId(
+            editPrefillRef.current.yearPriceId ||
+              data.yearPrices?.find((item) => item.year === editPrefillRef.current?.year)?.id ||
+              '',
+          );
+          editPrefillRef.current = null;
+        }
+      })
       .catch(() => {});
   }, [selectedVariant]);
+
+  useEffect(() => {
+    if (!selectedYear) {
+      setYearPriceId('');
+      return;
+    }
+
+    const matchedYearPrice = yearPriceOptions.find(
+      (option) => option.year === selectedYear,
+    );
+
+    setYearPriceId(matchedYearPrice?.id || '');
+  }, [selectedYear, yearPriceOptions]);
 
   const pickImages = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -147,10 +297,18 @@ export default function CreateListingScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedVariant || !price || !mileage || !locationCity || !sellerWhatsapp) {
+    const normalizedWhatsapp = normalizeWhatsappNumber(sellerWhatsapp);
+
+    if (!selectedVariant || !yearPriceId || !price || !mileage || !locationCity || !normalizedWhatsapp) {
       Alert.alert('Data Belum Lengkap', 'Mohon lengkapi semua data yang diperlukan');
       return;
     }
+
+    if (!/^628\d{8,13}$/.test(normalizedWhatsapp)) {
+      Alert.alert('Nomor WhatsApp Tidak Valid', 'Gunakan nomor WhatsApp aktif dengan format 628xxxxxxxxx.');
+      return;
+    }
+
     if (!isEdit && images.length === 0) {
       Alert.alert('Foto Diperlukan', 'Mohon tambahkan minimal 1 foto');
       return;
@@ -169,7 +327,7 @@ export default function CreateListingScreen() {
         locationProvince,
         description,
         condition,
-        sellerWhatsapp,
+        sellerWhatsapp: normalizedWhatsapp,
       };
       if (selectedYear) data.year = String(selectedYear);
       if (yearPriceId) data.yearPriceId = yearPriceId;
@@ -199,6 +357,14 @@ export default function CreateListingScreen() {
     { value: 'baru', label: 'Baru' },
     { value: 'bekas', label: 'Bekas' },
   ];
+
+  if (authLoading || loadingEditData || !isLoggedIn) {
+    return (
+      <View style={styles.screen}>
+        <LoadingSpinner fullScreen message="Menyiapkan form listing..." />
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -309,7 +475,7 @@ export default function CreateListingScreen() {
                 </>
               )}
 
-              {yearOptions.length > 0 && (
+            {yearOptions.length > 0 && (
                 <>
                   <Text style={styles.fieldLabel}>Tahun</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -433,7 +599,7 @@ export default function CreateListingScreen() {
             style={styles.inputFull}
             value={sellerWhatsapp}
             onChangeText={setSellerWhatsapp}
-            placeholder="cth: 08123456789"
+            placeholder="cth: 6281234567890"
             placeholderTextColor={Colors.textTertiary}
             keyboardType="phone-pad"
           />

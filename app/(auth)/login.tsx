@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors, { Shadows } from "@/constants/Colors";
 import { useAuth } from "@/context/AuthContext";
@@ -22,11 +22,29 @@ import { API_BASE_URL } from "@/constants/Config";
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { redirectTo, reason } = useLocalSearchParams<{
+    redirectTo?: string;
+    reason?: "whatsapp" | "sell" | "manage-listings" | "protected";
+  }>();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const targetRoute =
+    typeof redirectTo === "string" && redirectTo.length > 0
+      ? redirectTo
+      : "/(tabs)/marketplace";
+
+  const reasonMessage =
+    reason === "whatsapp"
+      ? "Masuk dulu untuk menghubungi penjual via WhatsApp."
+      : reason === "sell"
+        ? "Masuk dulu untuk memasang atau mengubah listing."
+        : reason === "manage-listings"
+          ? "Masuk dulu untuk melihat dan mengelola listing Anda."
+          : "Masuk untuk melanjutkan aktivitas Anda di marketplace.";
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -36,7 +54,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(email.trim(), password);
-      router.replace("/(tabs)/marketplace");
+      router.replace(targetRoute as never);
     } catch (error: any) {
       console.log("[LOGIN_ERROR]", {
         apiBaseUrl: API_BASE_URL,
@@ -101,7 +119,7 @@ export default function LoginScreen() {
           <View style={[styles.formCard, Shadows.large]}>
             <Text style={styles.formTitle}>Masuk</Text>
             <Text style={styles.formSubtitle}>
-              Selamat datang kembali! Masuk ke akun Anda
+              {reasonMessage}
             </Text>
 
             {/* Email */}
@@ -213,7 +231,19 @@ export default function LoginScreen() {
           {/* Register Link */}
           <View style={styles.registerRow}>
             <Text style={styles.registerText}>Belum punya akun? </Text>
-            <TouchableOpacity onPress={() => router.push("/(auth)/register")}>
+            <TouchableOpacity
+              onPress={() =>
+                router.push(
+                  {
+                    pathname: "/(auth)/register",
+                    params: {
+                      redirectTo: targetRoute,
+                      reason: reason || "protected",
+                    },
+                  } as never,
+                )
+              }
+            >
               <Text style={styles.registerLink}>Daftar Sekarang</Text>
             </TouchableOpacity>
           </View>

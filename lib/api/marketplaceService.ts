@@ -29,7 +29,7 @@ export async function fetchListingDetail(id: string): Promise<ApiResponse<Listin
   return response.data;
 }
 
-// Get WhatsApp link (public)
+// Get WhatsApp link (authenticated)
 export async function getWhatsAppLink(id: string): Promise<WhatsAppLinkResponse> {
   const response = await axiosInstance.get(`/marketplace/listings/${id}/whatsapp`);
   return response.data;
@@ -44,6 +44,12 @@ export async function fetchSellerProfile(id: string): Promise<ApiResponse<Seller
 // Get my listings (authenticated)
 export async function fetchMyListings(params: FilterParams = {}): Promise<MyListingsResponse> {
   const response = await axiosInstance.get('/marketplace/my-listings', { params });
+  return response.data;
+}
+
+// Get my listing detail (authenticated)
+export async function fetchMyListingDetail(id: string): Promise<ApiResponse<Listing>> {
+  const response = await axiosInstance.get(`/marketplace/my-listings/${id}`);
   return response.data;
 }
 

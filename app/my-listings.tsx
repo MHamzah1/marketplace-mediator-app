@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,21 +8,29 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
-} from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Colors, { Shadows } from '@/constants/Colors';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import EmptyState from '@/components/ui/EmptyState';
-import type { Listing, MyListingsSummary, Pagination } from '@/types';
-import { fetchMyListings, deleteListing } from '@/lib/api/marketplaceService';
-import { formatRupiah, getListingTitle, getListingImage, timeAgo } from '@/lib/utils';
+} from "react-native";
+import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Colors, { Shadows } from "@/constants/Colors";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import EmptyState from "@/components/ui/EmptyState";
+import type { Listing, MyListingsSummary, Pagination } from "@/types";
+import { fetchMyListings, deleteListing } from "@/lib/api/marketplaceService";
+import { useAuth } from "@/context/AuthContext";
+import { redirectToLogin } from "@/lib/auth/requireAuth";
+import {
+  formatRupiah,
+  getListingTitle,
+  getListingImage,
+  timeAgo,
+} from "@/lib/utils";
 
 export default function MyListingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { isLoggedIn, loading: authLoading } = useAuth();
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [summary, setSummary] = useState<MyListingsSummary | null>(null);
@@ -31,6 +39,7 @@ export default function MyListingsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [redirectingToLogin, setRedirectingToLogin] = useState(false);
 
   const loadData = useCallback(async (pageNum: number, append = false) => {
     try {
@@ -56,8 +65,26 @@ export default function MyListingsScreen() {
   }, []);
 
   useEffect(() => {
+    if (authLoading || isLoggedIn || redirectingToLogin) return;
+
+    setRedirectingToLogin(true);
+    Alert.alert(
+      "Login Diperlukan",
+      "Masuk dulu untuk melihat dan mengelola listing Anda.",
+      [
+        {
+          text: "OK",
+          onPress: () =>
+            redirectToLogin(router, "/my-listings", "manage-listings", true),
+        },
+      ],
+    );
+  }, [authLoading, isLoggedIn, redirectingToLogin, router]);
+
+  useEffect(() => {
+    if (authLoading || !isLoggedIn) return;
     loadData(1);
-  }, []);
+  }, [authLoading, isLoggedIn, loadData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -77,19 +104,19 @@ export default function MyListingsScreen() {
 
   const handleDelete = (item: Listing) => {
     Alert.alert(
-      'Hapus Listing',
+      "Hapus Listing",
       `Yakin ingin menghapus ${getListingTitle(item)}?`,
       [
-        { text: 'Batal', style: 'cancel' },
+        { text: "Batal", style: "cancel" },
         {
-          text: 'Hapus',
-          style: 'destructive',
+          text: "Hapus",
+          style: "destructive",
           onPress: async () => {
             try {
               await deleteListing(item.id);
               setListings((prev) => prev.filter((l) => l.id !== item.id));
             } catch {
-              Alert.alert('Error', 'Gagal menghapus listing');
+              Alert.alert("Error", "Gagal menghapus listing");
             }
           },
         },
@@ -102,13 +129,31 @@ export default function MyListingsScreen() {
     return (
       <View style={styles.summaryRow}>
         {[
-          { label: 'Aktif', value: summary.totalActiveListings, color: Colors.success },
-          { label: 'Nonaktif', value: summary.totalInactiveListings, color: Colors.textTertiary },
-          { label: 'Dilihat', value: summary.totalViews, color: Colors.primary },
-          { label: 'Kontak', value: summary.totalContactClicks, color: Colors.accent },
+          {
+            label: "Aktif",
+            value: summary.totalActiveListings,
+            color: Colors.success,
+          },
+          {
+            label: "Nonaktif",
+            value: summary.totalInactiveListings,
+            color: Colors.textTertiary,
+          },
+          {
+            label: "Dilihat",
+            value: summary.totalViews,
+            color: Colors.primary,
+          },
+          {
+            label: "Kontak",
+            value: summary.totalContactClicks,
+            color: Colors.accent,
+          },
         ].map((s, i) => (
           <View key={i} style={[styles.summaryCard, Shadows.small]}>
-            <Text style={[styles.summaryValue, { color: s.color }]}>{s.value}</Text>
+            <Text style={[styles.summaryValue, { color: s.color }]}>
+              {s.value}
+            </Text>
             <Text style={styles.summaryLabel}>{s.label}</Text>
           </View>
         ))}
@@ -127,7 +172,11 @@ export default function MyListingsScreen() {
         style={[styles.listingCard, Shadows.small]}
       >
         <Image
-          source={imageUri ? { uri: imageUri } : require('@/assets/images/car-placeholder.png')}
+          source={
+            imageUri
+              ? { uri: imageUri }
+              : require("@/assets/images/car-placeholder.png")
+          }
           style={styles.listingImage}
           contentFit="cover"
           transition={300}
@@ -135,25 +184,51 @@ export default function MyListingsScreen() {
         <View style={styles.listingContent}>
           <View style={styles.listingTop}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.listingTitle} numberOfLines={1}>{title}</Text>
+              <Text style={styles.listingTitle} numberOfLines={1}>
+                {title}
+              </Text>
               <Text style={styles.listingVariant} numberOfLines={1}>
                 {item.variant?.name || item.transmission} · {item.year}
               </Text>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: item.isActive ? Colors.successLight : Colors.backgroundSecondary }]}>
-              <Text style={[styles.statusText, { color: item.isActive ? Colors.success : Colors.textTertiary }]}>
-                {item.isActive ? 'Aktif' : 'Nonaktif'}
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: item.isActive
+                    ? Colors.successLight
+                    : Colors.backgroundSecondary,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color: item.isActive ? Colors.success : Colors.textTertiary,
+                  },
+                ]}
+              >
+                {item.isActive ? "Aktif" : "Nonaktif"}
               </Text>
             </View>
           </View>
           <Text style={styles.listingPrice}>{formatRupiah(item.price)}</Text>
           <View style={styles.listingStats}>
             <View style={styles.statPill}>
-              <Ionicons name="eye-outline" size={12} color={Colors.textTertiary} />
+              <Ionicons
+                name="eye-outline"
+                size={12}
+                color={Colors.textTertiary}
+              />
               <Text style={styles.statPillText}>{item.viewCount}</Text>
             </View>
             <View style={styles.statPill}>
-              <Ionicons name="call-outline" size={12} color={Colors.textTertiary} />
+              <Ionicons
+                name="call-outline"
+                size={12}
+                color={Colors.textTertiary}
+              />
               <Text style={styles.statPillText}>{item.contactClickCount}</Text>
             </View>
             <Text style={styles.listingTime}>{timeAgo(item.createdAt)}</Text>
@@ -163,7 +238,11 @@ export default function MyListingsScreen() {
               style={styles.editBtn}
               onPress={() => router.push(`/create-listing?editId=${item.id}`)}
             >
-              <Ionicons name="create-outline" size={16} color={Colors.primary} />
+              <Ionicons
+                name="create-outline"
+                size={16}
+                color={Colors.primary}
+              />
               <Text style={styles.editBtnText}>Edit</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -179,11 +258,22 @@ export default function MyListingsScreen() {
     );
   };
 
+  if (authLoading || !isLoggedIn) {
+    return (
+      <View style={styles.screen}>
+        <LoadingSpinner fullScreen message="Menyiapkan listing Anda..." />
+      </View>
+    );
+  }
+
   if (loading && listings.length === 0) {
     return (
       <View style={styles.screen}>
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
             <Ionicons name="arrow-back" size={22} color={Colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Listing Saya</Text>
@@ -197,11 +287,17 @@ export default function MyListingsScreen() {
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Listing Saya</Text>
-        <TouchableOpacity style={styles.addButton} onPress={() => router.push('/create-listing')}>
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={() => router.push("/create-listing")}
+        >
           <Ionicons name="add" size={22} color={Colors.primary} />
         </TouchableOpacity>
       </View>
@@ -210,7 +306,10 @@ export default function MyListingsScreen() {
         data={listings}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 40 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingBottom: insets.bottom + 40,
+        }}
         showsVerticalScrollIndicator={false}
         onEndReached={onEndReached}
         onEndReachedThreshold={0.3}
@@ -221,7 +320,7 @@ export default function MyListingsScreen() {
             title="Belum Ada Listing"
             subtitle="Mulai jual mobil Anda sekarang"
             actionLabel="Pasang Iklan"
-            onAction={() => router.push('/create-listing')}
+            onAction={() => router.push("/create-listing")}
           />
         }
         ListFooterComponent={
@@ -250,9 +349,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingBottom: 12,
     backgroundColor: Colors.card,
@@ -264,12 +363,12 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 14,
     backgroundColor: Colors.backgroundSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Colors.text,
   },
   addButton: {
@@ -277,11 +376,11 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 14,
     backgroundColor: Colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   summaryRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginVertical: 16,
   },
@@ -290,28 +389,28 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card,
     borderRadius: 14,
     paddingVertical: 14,
-    alignItems: 'center',
+    alignItems: "center",
   },
   summaryValue: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   summaryLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.textTertiary,
     marginTop: 2,
   },
   listingCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: Colors.card,
     borderRadius: 18,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 12,
   },
   listingImage: {
     width: 120,
-    height: '100%',
+    height: "100%",
     minHeight: 140,
   },
   listingContent: {
@@ -319,18 +418,18 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   listingTop: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 8,
   },
   listingTitle: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Colors.text,
   },
   listingVariant: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     color: Colors.textSecondary,
     marginTop: 2,
   },
@@ -341,23 +440,23 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   listingPrice: {
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Colors.primary,
     marginTop: 6,
   },
   listingStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginTop: 6,
   },
   statPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 3,
     backgroundColor: Colors.backgroundSecondary,
     paddingHorizontal: 6,
@@ -366,22 +465,22 @@ const styles = StyleSheet.create({
   },
   statPillText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.textTertiary,
   },
   listingTime: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: "500",
     color: Colors.textTertiary,
   },
   actionRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginTop: 8,
   },
   editBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -390,12 +489,12 @@ const styles = StyleSheet.create({
   },
   editBtnText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Colors.primary,
   },
   deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -404,11 +503,11 @@ const styles = StyleSheet.create({
   },
   deleteBtnText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Colors.error,
   },
   footerLoader: {
     paddingVertical: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
 });
