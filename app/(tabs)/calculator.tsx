@@ -1,218 +1,532 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Colors, { Shadows } from '@/constants/Colors';
 import GradientHeader from '@/components/ui/GradientHeader';
+import SearchableSelectField, {
+  SearchableSelectOption,
+} from '@/components/ui/SearchableSelectField';
+import Colors, { Shadows } from '@/constants/Colors';
+import { PAGINATION } from '@/constants/Config';
 import {
-  getCalculatorOptions,
-  getModelsByBrand,
-  getVariantsByModel,
-  getYearsByVariant,
-  getPriceAdjustmentsByModel,
   calculatePrice,
+  getCalculatorBrands,
+  getCalculatorModels,
+  getCalculatorVariants,
+  getCalculatorYearPrices,
+  getPriceAdjustmentsByModel,
 } from '@/lib/api/calculatorService';
 import { formatRupiahFull } from '@/lib/utils';
-import type {
-  CalculationResult,
-  Variant,
-  PriceAdjustmentOption,
-} from '@/types';
+import type { CalculationResult, PriceAdjustmentOption } from '@/types';
 
-interface SelectOption {
-  id: string;
-  label: string;
+interface CalculatorSelectOption extends SearchableSelectOption {
+  code?: string;
+  year?: number;
+  basePrice?: number;
+  adjustmentValue?: number;
+  colorHex?: string;
+  isBaseline?: boolean;
+}
+
+interface PagedSelectState {
+  items: CalculatorSelectOption[];
+  page: number;
+  totalPages: number;
+  loading: boolean;
+  loadingMore: boolean;
+}
+
+const SELECT_PAGE_SIZE = PAGINATION.defaultPageSize;
+
+function createPagedState(): PagedSelectState {
+  return {
+    items: [],
+    page: 1,
+    totalPages: 1,
+    loading: false,
+    loadingMore: false,
+  };
+}
+
+function useDebouncedValue<T>(value: T, delay = 350) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [delay, value]);
+
+  return debouncedValue;
+}
+
+function mergeOptions(
+  currentItems: CalculatorSelectOption[],
+  nextItems: CalculatorSelectOption[],
+) {
+  const nextMap = new Map<string, CalculatorSelectOption>();
+
+  [...currentItems, ...nextItems].forEach((item) => {
+    nextMap.set(item.id, item);
+  });
+
+  return Array.from(nextMap.values());
+}
+
+function formatAdjustmentHint(amount: number) {
+  if (amount === 0) {
+    return 'Tanpa penyesuaian harga';
+  }
+
+  const formatted = formatRupiahFull(Math.abs(amount));
+  return amount > 0 ? `Tambah ${formatted}` : `Kurang ${formatted}`;
+}
+
+function mapAdjustmentOptions(options: PriceAdjustmentOption[]) {
+  return options.map((option) => ({
+    id: option.id,
+    label: option.name,
+    subtitle: formatAdjustmentHint(option.adjustmentValue),
+    code: option.code,
+    adjustmentValue: option.adjustmentValue,
+    colorHex: option.colorHex,
+    isBaseline: option.isBaseline,
+  }));
+}
+
+function pickDefaultAdjustment(options: CalculatorSelectOption[]) {
+  return options.find((option) => option.isBaseline) || options[0] || null;
 }
 
 export default function CalculatorScreen() {
   const insets = useSafeAreaInsets();
 
-  // Options from API
-  const [brandOptions, setBrandOptions] = useState<SelectOption[]>([]);
-  const [modelOptions, setModelOptions] = useState<SelectOption[]>([]);
-  const [variantOptions, setVariantOptions] = useState<SelectOption[]>([]);
-  const [yearOptions, setYearOptions] = useState<number[]>([]);
+  const [brandState, setBrandState] = useState<PagedSelectState>(createPagedState);
+  const [modelState, setModelState] = useState<PagedSelectState>(createPagedState);
+  const [variantState, setVariantState] = useState<PagedSelectState>(createPagedState);
+  const [yearState, setYearState] = useState<PagedSelectState>(createPagedState);
 
-  // Selected values
-  const [selectedBrand, setSelectedBrand] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<string>('');
-  const [selectedVariant, setSelectedVariant] = useState<string>('');
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [brandSearch, setBrandSearch] = useState('');
+  const [modelSearch, setModelSearch] = useState('');
+  const [variantSearch, setVariantSearch] = useState('');
+  const [yearSearch, setYearSearch] = useState('');
 
-  // Condition inputs
-  const [ownership, setOwnership] = useState('');
-  const [color, setColor] = useState('');
-  const [feature, setFeature] = useState('');
+  const debouncedBrandSearch = useDebouncedValue(brandSearch);
+  const debouncedModelSearch = useDebouncedValue(modelSearch);
+  const debouncedVariantSearch = useDebouncedValue(variantSearch);
+  const debouncedYearSearch = useDebouncedValue(yearSearch);
 
-  const [ownershipOptions, setOwnershipOptions] = useState<PriceAdjustmentOption[]>([]);
-  const [colorOptions, setColorOptions] = useState<PriceAdjustmentOption[]>([]);
-  const [featureOptions, setFeatureOptions] = useState<PriceAdjustmentOption[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState<CalculatorSelectOption | null>(
+    null,
+  );
+  const [selectedModel, setSelectedModel] = useState<CalculatorSelectOption | null>(
+    null,
+  );
+  const [selectedVariant, setSelectedVariant] =
+    useState<CalculatorSelectOption | null>(null);
+  const [selectedYear, setSelectedYear] = useState<CalculatorSelectOption | null>(
+    null,
+  );
 
-  // State
-  const [loadingOptions, setLoadingOptions] = useState(true);
-  const [loadingModels, setLoadingModels] = useState(false);
-  const [loadingVariants, setLoadingVariants] = useState(false);
+  const [ownershipOptions, setOwnershipOptions] = useState<CalculatorSelectOption[]>(
+    [],
+  );
+  const [colorOptions, setColorOptions] = useState<CalculatorSelectOption[]>([]);
+  const [featureOptions, setFeatureOptions] = useState<CalculatorSelectOption[]>([]);
+
+  const [selectedOwnership, setSelectedOwnership] =
+    useState<CalculatorSelectOption | null>(null);
+  const [selectedColor, setSelectedColor] =
+    useState<CalculatorSelectOption | null>(null);
+  const [selectedFeature, setSelectedFeature] =
+    useState<CalculatorSelectOption | null>(null);
+
   const [loadingAdjustments, setLoadingAdjustments] = useState(false);
-  const [loadingYears, setLoadingYears] = useState(false);
   const [calculating, setCalculating] = useState(false);
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const pickDefaultOption = (options: PriceAdjustmentOption[]) =>
-    options.find((option) => option.isBaseline) || options[0];
+  const brandRequestRef = useRef(0);
+  const modelRequestRef = useRef(0);
+  const variantRequestRef = useRef(0);
+  const yearRequestRef = useRef(0);
 
-  // Load brand options
+  const resetAdjustments = () => {
+    setOwnershipOptions([]);
+    setColorOptions([]);
+    setFeatureOptions([]);
+    setSelectedOwnership(null);
+    setSelectedColor(null);
+    setSelectedFeature(null);
+  };
+
+  const loadBrandOptions = async (
+    page = 1,
+    search = '',
+    append = false,
+  ) => {
+    const requestId = ++brandRequestRef.current;
+
+    setBrandState((prev) => ({
+      ...prev,
+      loading: !append,
+      loadingMore: append,
+    }));
+
+    try {
+      const response = await getCalculatorBrands({
+        page,
+        perPage: SELECT_PAGE_SIZE,
+        search: search.trim() || undefined,
+      });
+
+      if (requestId !== brandRequestRef.current) {
+        return;
+      }
+
+      const mappedItems: CalculatorSelectOption[] = response.data.map((brand) => ({
+        id: brand.id,
+        label: brand.name,
+      }));
+
+      setBrandState((prev) => ({
+        items: append ? mergeOptions(prev.items, mappedItems) : mappedItems,
+        page: response.pagination.page,
+        totalPages: response.pagination.totalPages,
+        loading: false,
+        loadingMore: false,
+      }));
+      setError(null);
+    } catch {
+      if (requestId !== brandRequestRef.current) {
+        return;
+      }
+
+      setBrandState((prev) => ({
+        ...prev,
+        loading: false,
+        loadingMore: false,
+      }));
+      setError('Gagal memuat pilihan merk mobil.');
+    }
+  };
+
+  const loadModelOptions = async (
+    brandId: string,
+    page = 1,
+    search = '',
+    append = false,
+  ) => {
+    const requestId = ++modelRequestRef.current;
+
+    setModelState((prev) => ({
+      ...prev,
+      loading: !append,
+      loadingMore: append,
+    }));
+
+    try {
+      const response = await getCalculatorModels({
+        brandId,
+        page,
+        perPage: SELECT_PAGE_SIZE,
+        search: search.trim() || undefined,
+      });
+
+      if (requestId !== modelRequestRef.current) {
+        return;
+      }
+
+      const mappedItems: CalculatorSelectOption[] = response.data.map((model) => ({
+        id: model.id,
+        label: model.modelName,
+        subtitle: model.brandName,
+      }));
+
+      setModelState((prev) => ({
+        items: append ? mergeOptions(prev.items, mappedItems) : mappedItems,
+        page: response.pagination.page,
+        totalPages: response.pagination.totalPages,
+        loading: false,
+        loadingMore: false,
+      }));
+      setError(null);
+    } catch {
+      if (requestId !== modelRequestRef.current) {
+        return;
+      }
+
+      setModelState((prev) => ({
+        ...prev,
+        loading: false,
+        loadingMore: false,
+      }));
+      setError('Gagal memuat pilihan model mobil.');
+    }
+  };
+
+  const loadVariantOptions = async (
+    modelId: string,
+    page = 1,
+    search = '',
+    append = false,
+  ) => {
+    const requestId = ++variantRequestRef.current;
+
+    setVariantState((prev) => ({
+      ...prev,
+      loading: !append,
+      loadingMore: append,
+    }));
+
+    try {
+      const response = await getCalculatorVariants({
+        modelId,
+        page,
+        perPage: SELECT_PAGE_SIZE,
+        search: search.trim() || undefined,
+      });
+
+      if (requestId !== variantRequestRef.current) {
+        return;
+      }
+
+      const mappedItems: CalculatorSelectOption[] = response.data.map((variant) => ({
+        id: variant.id,
+        label: variant.variantName,
+        subtitle:
+          variant.transmissionType === 'matic'
+            ? 'Transmisi matic'
+            : variant.transmissionType === 'manual'
+              ? 'Transmisi manual'
+              : 'Manual dan matic',
+      }));
+
+      setVariantState((prev) => ({
+        items: append ? mergeOptions(prev.items, mappedItems) : mappedItems,
+        page: response.pagination.page,
+        totalPages: response.pagination.totalPages,
+        loading: false,
+        loadingMore: false,
+      }));
+      setError(null);
+    } catch {
+      if (requestId !== variantRequestRef.current) {
+        return;
+      }
+
+      setVariantState((prev) => ({
+        ...prev,
+        loading: false,
+        loadingMore: false,
+      }));
+      setError('Gagal memuat pilihan varian mobil.');
+    }
+  };
+
+  const loadYearOptions = async (
+    variantId: string,
+    page = 1,
+    search = '',
+    append = false,
+  ) => {
+    const requestId = ++yearRequestRef.current;
+
+    setYearState((prev) => ({
+      ...prev,
+      loading: !append,
+      loadingMore: append,
+    }));
+
+    const trimmedSearch = search.trim();
+    const normalizedYear =
+      /^\d{4}$/.test(trimmedSearch) && Number(trimmedSearch) >= 2000
+        ? Number(trimmedSearch)
+        : undefined;
+
+    try {
+      const response = await getCalculatorYearPrices({
+        variantId,
+        page,
+        perPage: SELECT_PAGE_SIZE,
+        year: normalizedYear,
+      });
+
+      if (requestId !== yearRequestRef.current) {
+        return;
+      }
+
+      const mappedItems: CalculatorSelectOption[] = response.data.map((item) => ({
+        id: item.id,
+        label: `${item.year}`,
+        subtitle: `Harga dasar ${formatRupiahFull(item.basePrice)}`,
+        year: item.year,
+        basePrice: item.basePrice,
+      }));
+
+      setYearState((prev) => ({
+        items: append ? mergeOptions(prev.items, mappedItems) : mappedItems,
+        page: response.pagination.page,
+        totalPages: response.pagination.totalPages,
+        loading: false,
+        loadingMore: false,
+      }));
+      setError(null);
+    } catch {
+      if (requestId !== yearRequestRef.current) {
+        return;
+      }
+
+      setYearState((prev) => ({
+        ...prev,
+        loading: false,
+        loadingMore: false,
+      }));
+      setError('Gagal memuat pilihan tahun mobil.');
+    }
+  };
+
   useEffect(() => {
-    getCalculatorOptions()
-      .then((data) => {
-        setBrandOptions(
-          (data.brands || []).map((b) => ({ id: b.id, label: b.name })),
-        );
-      })
-      .catch(() => {})
-      .finally(() => setLoadingOptions(false));
-  }, []);
+    loadBrandOptions(1, debouncedBrandSearch);
+  }, [debouncedBrandSearch]);
 
-  // Load models when brand changes
+  useEffect(() => {
+    setSelectedModel(null);
+    setSelectedVariant(null);
+    setSelectedYear(null);
+    setModelSearch('');
+    setVariantSearch('');
+    setYearSearch('');
+    setModelState(createPagedState());
+    setVariantState(createPagedState());
+    setYearState(createPagedState());
+    resetAdjustments();
+    setResult(null);
+
+    if (!selectedBrand) {
+      setLoadingAdjustments(false);
+    }
+  }, [selectedBrand?.id]);
+
   useEffect(() => {
     if (!selectedBrand) {
-      setModelOptions([]);
-      setSelectedModel('');
-      setOwnershipOptions([]);
-      setColorOptions([]);
-      setFeatureOptions([]);
-      setOwnership('');
-      setColor('');
-      setFeature('');
-      setLoadingAdjustments(false);
       return;
     }
-    setLoadingModels(true);
-    setSelectedModel('');
-    setVariantOptions([]);
-    setSelectedVariant('');
-    setYearOptions([]);
-    setSelectedYear(null);
-    setResult(null);
-    getModelsByBrand(selectedBrand)
-      .then((data) => {
-        setModelOptions(
-          (data.models || []).map((m) => ({ id: m.id, label: m.modelName })),
-        );
-      })
-      .catch(() => {})
-      .finally(() => setLoadingModels(false));
-  }, [selectedBrand]);
 
-  // Load variants when model changes
+    loadModelOptions(selectedBrand.id, 1, debouncedModelSearch);
+  }, [debouncedModelSearch, selectedBrand?.id]);
+
   useEffect(() => {
+    setSelectedVariant(null);
+    setSelectedYear(null);
+    setVariantSearch('');
+    setYearSearch('');
+    setVariantState(createPagedState());
+    setYearState(createPagedState());
+    setResult(null);
+
     if (!selectedModel) {
-      setVariantOptions([]);
-      setSelectedVariant('');
-      setOwnershipOptions([]);
-      setColorOptions([]);
-      setFeatureOptions([]);
-      setOwnership('');
-      setColor('');
-      setFeature('');
+      resetAdjustments();
       setLoadingAdjustments(false);
       return;
     }
-    setLoadingVariants(true);
-    setLoadingAdjustments(true);
-    setSelectedVariant('');
-    setYearOptions([]);
-    setSelectedYear(null);
-    setResult(null);
-    setError(null);
-    Promise.all([
-      getVariantsByModel(selectedModel),
-      getPriceAdjustmentsByModel(selectedModel),
-    ])
-      .then(([variants, adjustments]: [Variant[], Awaited<ReturnType<typeof getPriceAdjustmentsByModel>>]) => {
-        setVariantOptions(
-          (variants || []).map((variant) => ({
-            id: variant.id,
-            label: variant.name,
-          })),
-        );
 
-        const nextOwnershipOptions = adjustments.adjustments.ownership || [];
-        const nextColorOptions = adjustments.adjustments.color || [];
-        const nextFeatureOptions = adjustments.adjustments.feature || [];
+    setLoadingAdjustments(true);
+
+    getPriceAdjustmentsByModel(selectedModel.id)
+      .then((adjustments) => {
+        const nextOwnershipOptions = mapAdjustmentOptions(
+          adjustments.adjustments.ownership || [],
+        );
+        const nextColorOptions = mapAdjustmentOptions(
+          adjustments.adjustments.color || [],
+        );
+        const nextFeatureOptions = mapAdjustmentOptions(
+          adjustments.adjustments.feature || [],
+        );
 
         setOwnershipOptions(nextOwnershipOptions);
         setColorOptions(nextColorOptions);
         setFeatureOptions(nextFeatureOptions);
-
-        setOwnership(pickDefaultOption(nextOwnershipOptions)?.code || '');
-        setColor(pickDefaultOption(nextColorOptions)?.code || '');
-        setFeature(pickDefaultOption(nextFeatureOptions)?.code || '');
+        setSelectedOwnership(pickDefaultAdjustment(nextOwnershipOptions));
+        setSelectedColor(pickDefaultAdjustment(nextColorOptions));
+        setSelectedFeature(pickDefaultAdjustment(nextFeatureOptions));
+        setError(null);
       })
       .catch(() => {
-        setOwnershipOptions([]);
-        setColorOptions([]);
-        setFeatureOptions([]);
-        setOwnership('');
-        setColor('');
-        setFeature('');
-        setError('Konfigurasi kalkulator untuk model ini belum tersedia.');
+        resetAdjustments();
+        setError('Konfigurasi penyesuaian harga untuk model ini belum tersedia.');
       })
       .finally(() => {
-        setLoadingVariants(false);
         setLoadingAdjustments(false);
       });
-  }, [selectedModel]);
+  }, [selectedModel?.id]);
 
-  // Load years when variant changes
   useEffect(() => {
-    if (!selectedVariant) {
-      setYearOptions([]);
-      setSelectedYear(null);
-      setLoadingYears(false);
+    if (!selectedModel) {
       return;
     }
-    setLoadingYears(true);
+
+    loadVariantOptions(selectedModel.id, 1, debouncedVariantSearch);
+  }, [debouncedVariantSearch, selectedModel?.id]);
+
+  useEffect(() => {
     setSelectedYear(null);
+    setYearSearch('');
+    setYearState(createPagedState());
     setResult(null);
-    getYearsByVariant(selectedVariant)
-      .then((data) => {
-        setYearOptions(data.years || []);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingYears(false));
-  }, [selectedVariant]);
+  }, [selectedVariant?.id]);
+
+  useEffect(() => {
+    if (!selectedVariant) {
+      return;
+    }
+
+    loadYearOptions(selectedVariant.id, 1, debouncedYearSearch);
+  }, [debouncedYearSearch, selectedVariant?.id]);
 
   const canCalculate = Boolean(
-    selectedVariant && selectedYear && ownership && color && feature,
+    selectedVariant?.id &&
+      selectedYear?.year &&
+      selectedOwnership?.code &&
+      selectedColor?.code &&
+      selectedFeature?.code,
   );
 
   const handleCalculate = async () => {
-    if (!canCalculate) return;
+    if (!canCalculate || !selectedVariant || !selectedYear) {
+      return;
+    }
+
     try {
       setCalculating(true);
       setError(null);
-      const res = await calculatePrice({
-        variantId: selectedVariant,
-        year: selectedYear!,
-        ownershipCode: ownership,
-        colorCode: color,
-        featureCode: feature,
+
+      const calculationResult = await calculatePrice({
+        variantId: selectedVariant.id,
+        year: selectedYear.year!,
+        ownershipCode: selectedOwnership?.code || '',
+        colorCode: selectedColor?.code || '',
+        featureCode: selectedFeature?.code || '',
       });
-      setResult(res);
+
+      setResult(calculationResult);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal menghitung harga';
-      setError(msg);
+      const message =
+        err instanceof Error ? err.message : 'Gagal menghitung estimasi harga.';
+      setError(message);
     } finally {
       setCalculating(false);
     }
@@ -234,7 +548,6 @@ export default function CalculatorScreen() {
         />
 
         <View style={styles.content}>
-          {/* Brand */}
           <View style={[styles.card, Shadows.medium]}>
             <View style={styles.cardHeader}>
               <View style={styles.cardIconBg}>
@@ -243,98 +556,132 @@ export default function CalculatorScreen() {
               <Text style={styles.cardTitle}>Pilih Mobil</Text>
             </View>
 
-            {loadingOptions ? (
-              <ActivityIndicator color={Colors.primary} />
-            ) : (
-              <>
-                <Text style={styles.fieldLabel}>Merk</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                  {brandOptions.map((b) => (
-                    <TouchableOpacity
-                      key={b.id}
-                      style={[styles.chip, selectedBrand === b.id && styles.chipActive]}
-                      onPress={() => setSelectedBrand(b.id)}
-                    >
-                      <Text style={[styles.chipText, selectedBrand === b.id && styles.chipTextActive]}>
-                        {b.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+            <View style={styles.selectGroup}>
+              <SearchableSelectField
+                label="Merk"
+                placeholder="Pilih merk mobil"
+                modalTitle="Pilih Merk Mobil"
+                selectedId={selectedBrand?.id}
+                selectedLabel={selectedBrand?.label}
+                options={brandState.items}
+                loading={brandState.loading}
+                loadingMore={brandState.loadingMore}
+                searchEnabled
+                searchValue={brandSearch}
+                onSearchChange={setBrandSearch}
+                onLoadMore={() =>
+                  loadBrandOptions(
+                    brandState.page + 1,
+                    debouncedBrandSearch,
+                    true,
+                  )
+                }
+                hasNextPage={brandState.page < brandState.totalPages}
+                emptyText="Merk mobil belum tersedia."
+                onSelect={(option) => {
+                  setSelectedBrand(option as CalculatorSelectOption);
+                }}
+              />
 
-                {selectedBrand && (
-                  <>
-                    <Text style={styles.fieldLabel}>Model</Text>
-                    {loadingModels ? (
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                    ) : (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                        {modelOptions.map((m) => (
-                          <TouchableOpacity
-                            key={m.id}
-                            style={[styles.chip, selectedModel === m.id && styles.chipActive]}
-                            onPress={() => setSelectedModel(m.id)}
-                          >
-                            <Text style={[styles.chipText, selectedModel === m.id && styles.chipTextActive]}>
-                              {m.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    )}
-                  </>
-                )}
+              <SearchableSelectField
+                label="Model"
+                placeholder="Pilih model mobil"
+                modalTitle="Pilih Model Mobil"
+                selectedId={selectedModel?.id}
+                selectedLabel={selectedModel?.label}
+                options={modelState.items}
+                disabled={!selectedBrand}
+                loading={modelState.loading}
+                loadingMore={modelState.loadingMore}
+                searchEnabled
+                searchValue={modelSearch}
+                onSearchChange={setModelSearch}
+                onLoadMore={() => {
+                  if (!selectedBrand) {
+                    return;
+                  }
 
-                {selectedModel && (
-                  <>
-                    <Text style={styles.fieldLabel}>Varian</Text>
-                    {loadingVariants ? (
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                    ) : (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                        {variantOptions.map((v) => (
-                          <TouchableOpacity
-                            key={v.id}
-                            style={[styles.chip, selectedVariant === v.id && styles.chipActive]}
-                            onPress={() => setSelectedVariant(v.id)}
-                          >
-                            <Text style={[styles.chipText, selectedVariant === v.id && styles.chipTextActive]}>
-                              {v.label}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    )}
-                  </>
-                )}
+                  loadModelOptions(
+                    selectedBrand.id,
+                    modelState.page + 1,
+                    debouncedModelSearch,
+                    true,
+                  );
+                }}
+                hasNextPage={modelState.page < modelState.totalPages}
+                emptyText="Model untuk merk ini belum tersedia."
+                onSelect={(option) => {
+                  setSelectedModel(option as CalculatorSelectOption);
+                }}
+              />
 
-                {selectedVariant && (
-                  <>
-                    <Text style={styles.fieldLabel}>Tahun</Text>
-                    {loadingYears ? (
-                      <ActivityIndicator size="small" color={Colors.primary} />
-                    ) : (
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                        {yearOptions.map((y) => (
-                          <TouchableOpacity
-                            key={y}
-                            style={[styles.chip, selectedYear === y && styles.chipActive]}
-                            onPress={() => setSelectedYear(y)}
-                          >
-                            <Text style={[styles.chipText, selectedYear === y && styles.chipTextActive]}>
-                              {y}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    )}
-                  </>
-                )}
-              </>
-            )}
+              <SearchableSelectField
+                label="Varian"
+                placeholder="Pilih varian mobil"
+                modalTitle="Pilih Varian Mobil"
+                selectedId={selectedVariant?.id}
+                selectedLabel={selectedVariant?.label}
+                options={variantState.items}
+                disabled={!selectedModel}
+                loading={variantState.loading}
+                loadingMore={variantState.loadingMore}
+                searchEnabled
+                searchValue={variantSearch}
+                onSearchChange={setVariantSearch}
+                onLoadMore={() => {
+                  if (!selectedModel) {
+                    return;
+                  }
+
+                  loadVariantOptions(
+                    selectedModel.id,
+                    variantState.page + 1,
+                    debouncedVariantSearch,
+                    true,
+                  );
+                }}
+                hasNextPage={variantState.page < variantState.totalPages}
+                emptyText="Varian untuk model ini belum tersedia."
+                onSelect={(option) => {
+                  setSelectedVariant(option as CalculatorSelectOption);
+                }}
+              />
+
+              <SearchableSelectField
+                label="Tahun"
+                placeholder="Pilih tahun mobil"
+                modalTitle="Pilih Tahun Mobil"
+                selectedId={selectedYear?.id}
+                selectedLabel={selectedYear?.label}
+                options={yearState.items}
+                disabled={!selectedVariant}
+                loading={yearState.loading}
+                loadingMore={yearState.loadingMore}
+                searchEnabled
+                searchPlaceholder="Cari tahun, misalnya 2024"
+                searchValue={yearSearch}
+                onSearchChange={setYearSearch}
+                onLoadMore={() => {
+                  if (!selectedVariant) {
+                    return;
+                  }
+
+                  loadYearOptions(
+                    selectedVariant.id,
+                    yearState.page + 1,
+                    debouncedYearSearch,
+                    true,
+                  );
+                }}
+                hasNextPage={yearState.page < yearState.totalPages}
+                emptyText="Tahun untuk varian ini belum tersedia."
+                onSelect={(option) => {
+                  setSelectedYear(option as CalculatorSelectOption);
+                }}
+              />
+            </View>
           </View>
 
-          {/* Conditions */}
           <View style={[styles.card, Shadows.medium]}>
             <View style={styles.cardHeader}>
               <View style={styles.cardIconBg}>
@@ -343,72 +690,66 @@ export default function CalculatorScreen() {
               <Text style={styles.cardTitle}>Kondisi</Text>
             </View>
 
-            <Text style={styles.fieldLabel}>Kepemilikan</Text>
             {loadingAdjustments ? (
-              <ActivityIndicator size="small" color={Colors.primary} />
+              <ActivityIndicator color={Colors.primary} />
             ) : (
-              <View style={styles.chipRow}>
-                {ownershipOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[styles.chip, ownership === option.code && styles.chipActive]}
-                    onPress={() => setOwnership(option.code)}
-                  >
-                    <Text style={[styles.chipText, ownership === option.code && styles.chipTextActive]}>
-                      {option.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+              <View style={styles.selectGroup}>
+                <SearchableSelectField
+                  label="Kepemilikan"
+                  placeholder="Pilih status kepemilikan"
+                  modalTitle="Pilih Status Kepemilikan"
+                  selectedId={selectedOwnership?.id}
+                  selectedLabel={selectedOwnership?.label}
+                  options={ownershipOptions}
+                  disabled={!selectedModel || ownershipOptions.length === 0}
+                  emptyText="Belum ada opsi kepemilikan."
+                  onSelect={(option) => {
+                    setSelectedOwnership(option as CalculatorSelectOption);
+                  }}
+                />
 
-            <Text style={styles.fieldLabel}>Warna</Text>
-            {loadingAdjustments ? (
-              <ActivityIndicator size="small" color={Colors.primary} />
-            ) : (
-              <View style={styles.chipRow}>
-                {colorOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[styles.chip, color === option.code && styles.chipActive]}
-                    onPress={() => setColor(option.code)}
-                  >
-                    <Text style={[styles.chipText, color === option.code && styles.chipTextActive]}>
-                      {option.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+                <SearchableSelectField
+                  label="Warna"
+                  placeholder="Pilih warna mobil"
+                  modalTitle="Pilih Warna Mobil"
+                  selectedId={selectedColor?.id}
+                  selectedLabel={selectedColor?.label}
+                  options={colorOptions}
+                  disabled={!selectedModel || colorOptions.length === 0}
+                  emptyText="Belum ada opsi warna."
+                  onSelect={(option) => {
+                    setSelectedColor(option as CalculatorSelectOption);
+                  }}
+                />
 
-            <Text style={styles.fieldLabel}>Fitur Tambahan</Text>
-            {loadingAdjustments ? (
-              <ActivityIndicator size="small" color={Colors.primary} />
-            ) : (
-              <View style={styles.chipRow}>
-                {featureOptions.map((option) => (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[styles.chip, feature === option.code && styles.chipActive]}
-                    onPress={() => setFeature(option.code)}
-                  >
-                    <Text style={[styles.chipText, feature === option.code && styles.chipTextActive]}>
-                      {option.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                <SearchableSelectField
+                  label="Fitur Tambahan"
+                  placeholder="Pilih fitur tambahan"
+                  modalTitle="Pilih Fitur Tambahan"
+                  selectedId={selectedFeature?.id}
+                  selectedLabel={selectedFeature?.label}
+                  options={featureOptions}
+                  disabled={!selectedModel || featureOptions.length === 0}
+                  emptyText="Belum ada opsi fitur tambahan."
+                  onSelect={(option) => {
+                    setSelectedFeature(option as CalculatorSelectOption);
+                  }}
+                />
               </View>
             )}
           </View>
 
-          {/* Calculate Button */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={handleCalculate}
             disabled={!canCalculate || calculating}
           >
             <LinearGradient
-              colors={canCalculate ? [Colors.gradientStart, Colors.gradientEnd] : ['#94A3B8', '#94A3B8']}
+              colors={
+                canCalculate
+                  ? [Colors.gradientStart, Colors.gradientEnd]
+                  : ['#94A3B8', '#94A3B8']
+              }
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[styles.calculateBtn, canCalculate && Shadows.blue]}
@@ -424,15 +765,14 @@ export default function CalculatorScreen() {
             </LinearGradient>
           </TouchableOpacity>
 
-          {error && (
+          {error ? (
             <View style={styles.errorBox}>
               <Ionicons name="alert-circle" size={18} color={Colors.error} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
-          )}
+          ) : null}
 
-          {/* Result */}
-          {result && (
+          {result ? (
             <View style={[styles.resultCard, Shadows.large]}>
               <LinearGradient
                 colors={[Colors.gradientStart, Colors.gradientMiddle]}
@@ -441,25 +781,26 @@ export default function CalculatorScreen() {
                 style={styles.resultHeader}
               >
                 <Text style={styles.resultHeaderTitle}>Estimasi Harga Pasar</Text>
-                <Text style={styles.finalPrice}>{formatRupiahFull(result.finalPrice)}</Text>
+                <Text style={styles.finalPrice}>
+                  {formatRupiahFull(result.finalPrice)}
+                </Text>
                 <Text style={styles.priceRange}>
-                  {formatRupiahFull(result.priceRange.min)} - {formatRupiahFull(result.priceRange.max)}
+                  {formatRupiahFull(result.priceRange.min)} -{' '}
+                  {formatRupiahFull(result.priceRange.max)}
                 </Text>
               </LinearGradient>
 
               <View style={styles.resultBody}>
-                {/* Car info */}
                 <View style={styles.resultSection}>
                   <Text style={styles.resultSectionTitle}>Detail Mobil</Text>
                   <Text style={styles.resultCarName}>
                     {result.car.brandName} {result.car.modelName}
                   </Text>
                   <Text style={styles.resultCarVariant}>
-                    {result.car.variantName} · {result.car.year}
+                    {result.car.variantName} - {result.car.year}
                   </Text>
                 </View>
 
-                {/* Price breakdown */}
                 <View style={styles.resultSection}>
                   <Text style={styles.resultSectionTitle}>Rincian Harga</Text>
                   <View style={styles.breakdownRow}>
@@ -468,36 +809,53 @@ export default function CalculatorScreen() {
                       {formatRupiahFull(result.priceBreakdown.basePrice)}
                     </Text>
                   </View>
-                  {result.priceBreakdown.adjustments.map((adj, i) => (
-                    <View key={i} style={styles.breakdownRow}>
-                      <Text style={styles.breakdownLabel}>{adj.name}</Text>
+                  {result.priceBreakdown.adjustments.map((adjustment) => (
+                    <View
+                      key={adjustment.category}
+                      style={styles.breakdownRow}
+                    >
+                      <Text style={styles.breakdownLabel}>{adjustment.name}</Text>
                       <Text
                         style={[
                           styles.breakdownValue,
-                          { color: adj.amount >= 0 ? Colors.success : Colors.error },
+                          {
+                            color:
+                              adjustment.amount >= 0
+                                ? Colors.success
+                                : Colors.error,
+                          },
                         ]}
                       >
-                        {adj.amount >= 0 ? '+' : ''}{formatRupiahFull(adj.amount)}
+                        {adjustment.amount >= 0 ? '+' : ''}
+                        {formatRupiahFull(adjustment.amount)}
                       </Text>
                     </View>
                   ))}
                   <View style={[styles.breakdownRow, styles.breakdownTotal]}>
-                    <Text style={styles.breakdownTotalLabel}>Total Penyesuaian</Text>
+                    <Text style={styles.breakdownTotalLabel}>
+                      Total Penyesuaian
+                    </Text>
                     <Text style={styles.breakdownTotalValue}>
                       {formatRupiahFull(result.priceBreakdown.totalAdjustments)}
                     </Text>
                   </View>
                 </View>
 
-                {result.priceRange.note && (
+                {result.priceRange.note ? (
                   <View style={styles.disclaimer}>
-                    <Ionicons name="information-circle" size={16} color={Colors.textTertiary} />
-                    <Text style={styles.disclaimerText}>{result.priceRange.note}</Text>
+                    <Ionicons
+                      name="information-circle"
+                      size={16}
+                      color={Colors.textTertiary}
+                    />
+                    <Text style={styles.disclaimerText}>
+                      {result.priceRange.note}
+                    </Text>
                   </View>
-                )}
+                ) : null}
               </View>
             </View>
-          )}
+          ) : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -539,34 +897,8 @@ const styles = StyleSheet.create({
     color: Colors.text,
     flex: 1,
   },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: Colors.backgroundSecondary,
-  },
-  chipActive: {
-    backgroundColor: Colors.primary,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  chipTextActive: {
-    color: Colors.white,
+  selectGroup: {
+    gap: 14,
   },
   calculateBtn: {
     flexDirection: 'row',
@@ -653,8 +985,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
+    gap: 16,
   },
   breakdownLabel: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '500',
     color: Colors.textSecondary,
@@ -663,6 +997,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: Colors.text,
+    textAlign: 'right',
   },
   breakdownTotal: {
     borderBottomWidth: 0,

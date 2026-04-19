@@ -5,10 +5,64 @@ import type {
   YearsByVariant,
   CalculationResult,
   PriceAdjustmentGroups,
+  PaginatedResponse,
+  CalculatorBrandOption,
+  CalculatorModelOption,
+  CalculatorVariantOption,
+  CalculatorYearPriceOption,
 } from '@/types';
 
 export async function getCalculatorOptions(): Promise<CalculatorOptions> {
   const response = await axiosInstance.get('/price-calculator/options');
+  return response.data;
+}
+
+export async function getCalculatorBrands(params?: {
+  page?: number;
+  perPage?: number;
+  search?: string;
+}): Promise<PaginatedResponse<CalculatorBrandOption>> {
+  const response = await axiosInstance.get('/price-calculator/brands', {
+    params,
+  });
+  return response.data;
+}
+
+export async function getCalculatorModels(params?: {
+  brandId?: string;
+  page?: number;
+  perPage?: number;
+  search?: string;
+}): Promise<PaginatedResponse<CalculatorModelOption>> {
+  const response = await axiosInstance.get('/price-calculator/models', {
+    params,
+  });
+  return response.data;
+}
+
+export async function getCalculatorVariants(params?: {
+  modelId?: string;
+  page?: number;
+  perPage?: number;
+  search?: string;
+}): Promise<PaginatedResponse<CalculatorVariantOption>> {
+  const response = await axiosInstance.get('/price-calculator/variants', {
+    params,
+  });
+  return response.data;
+}
+
+export async function getCalculatorYearPrices(params?: {
+  variantId?: string;
+  modelId?: string;
+  brandId?: string;
+  page?: number;
+  perPage?: number;
+  year?: number;
+}): Promise<PaginatedResponse<CalculatorYearPriceOption>> {
+  const response = await axiosInstance.get('/price-calculator/year-prices', {
+    params,
+  });
   return response.data;
 }
 

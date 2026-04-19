@@ -201,6 +201,40 @@ export interface CalculatorOptions {
   years: number[];
 }
 
+export interface CalculatorBrandOption {
+  id: string;
+  name: string;
+  logo?: string;
+}
+
+export interface CalculatorModelOption {
+  id: string;
+  brandId: string;
+  brandName?: string;
+  modelName: string;
+  imageUrl?: string;
+}
+
+export interface CalculatorVariantOption {
+  id: string;
+  modelId: string;
+  modelName?: string;
+  brandName?: string;
+  variantName: string;
+  transmissionType: string;
+}
+
+export interface CalculatorYearPriceOption {
+  id: string;
+  variantId: string;
+  variantName?: string;
+  modelId?: string;
+  modelName?: string;
+  brandName?: string;
+  year: number;
+  basePrice: number;
+}
+
 export interface ModelsByBrand {
   brandId: string;
   brandName: string;
