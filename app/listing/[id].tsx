@@ -1,88 +1,96 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  FlatList,
-  Share,
-  Linking,
   Alert,
+  Linking,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
 } from 'react-native';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Colors, { Shadows } from '@/constants/Colors';
+import { Image } from 'expo-image';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
-import type { Listing } from '@/types';
-import { fetchListingDetail, getWhatsAppLink } from '@/lib/api/marketplaceService';
-import { requireAuth } from '@/lib/auth/requireAuth';
+import Colors, { Shadows } from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
+import { requireAuth } from '@/lib/auth/requireAuth';
 import {
-  formatRupiahFull,
+  fetchListingDetail,
+  getWhatsAppLink,
+} from '@/lib/api/marketplaceService';
+import {
   formatMileage,
+  formatRupiahFull,
   getListingTitle,
   resolveImageUrl,
-  timeAgo,
 } from '@/lib/utils';
-
-const { width } = Dimensions.get('window');
-
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+import type { Listing } from '@/types';
 
 export default function ListingDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isLoggedIn } = useAuth();
 
-  const [car, setCar] = useState<Listing | null>(null);
+  const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [contacting, setContacting] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    loadDetail();
+
+    setLoading(true);
+    fetchListingDetail(id)
+      .then((response) => {
+        setListing(response.data);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Gagal memuat detail listing.');
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
-  const loadDetail = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const res = await fetchListingDetail(id!);
-      setCar(res.data);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal memuat detail listing';
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const title = useMemo(() => {
+    if (!listing) return '';
+    return getListingTitle(listing);
+  }, [listing]);
+
+  const gallery = useMemo(() => {
+    if (!listing) return [];
+    return (listing.images || [])
+      .map((item) => resolveImageUrl(item))
+      .filter(Boolean) as string[];
+  }, [listing]);
+
+  const selectedImage = gallery[selectedImageIndex];
 
   const handleShare = async () => {
-    if (!car) return;
-    const title = getListingTitle(car);
+    if (!listing) return;
     await Share.share({
-      title: `${title} ${car.variant?.name || ''}`,
-      message: `Lihat ${title} ${car.variant?.name || ''} seharga ${formatRupiahFull(car.price)} di Mediator!`,
+      title,
+      message: `${title} - ${formatRupiahFull(listing.price)} di Mediator`,
     });
   };
 
-  const handleContact = async () => {
-    if (!car) return;
+  const handleWhatsApp = async () => {
+    if (!listing) return;
+
     if (
       !requireAuth(router, isLoggedIn, {
-        redirectTo: `/listing/${car.id}`,
+        redirectTo: `/listing/${listing.id}`,
         reason: 'whatsapp',
-        message: 'Masuk dulu untuk melihat nomor dan menghubungi penjual via WhatsApp.',
+        message: 'Masuk dulu untuk menghubungi penjual via WhatsApp.',
       })
     ) {
       return;
@@ -90,76 +98,58 @@ export default function ListingDetailScreen() {
 
     try {
       setContacting(true);
-      const res = await getWhatsAppLink(car.id);
-      if (res.whatsappUrl) {
-        await Linking.openURL(res.whatsappUrl);
-      }
+      const response = await getWhatsAppLink(listing.id);
+      await Linking.openURL(response.whatsappUrl);
     } catch {
-      Alert.alert('Error', 'Gagal mendapatkan link WhatsApp penjual');
+      Alert.alert('Gagal Membuka WhatsApp', 'Silakan coba beberapa saat lagi.');
     } finally {
       setContacting(false);
     }
   };
 
   if (loading) {
-    return (
-      <View style={styles.screen}>
-        <LoadingSpinner fullScreen message="Memuat detail..." />
-      </View>
-    );
+    return <LoadingSpinner fullScreen message="Memuat detail mobil..." />;
   }
 
-  if (error || !car) {
+  if (!listing || error) {
     return (
       <View style={styles.screen}>
-        <View style={[styles.floatingHeader, { paddingTop: insets.top + 4 }]}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
+        <View style={[styles.headerOverlay, { paddingTop: insets.top + 8 }]}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={22} color={Colors.text} />
           </TouchableOpacity>
         </View>
         <EmptyState
           icon="alert-circle-outline"
-          title="Gagal Memuat"
-          subtitle={error || 'Listing tidak ditemukan'}
-          actionLabel="Coba Lagi"
-          onAction={loadDetail}
+          title="Detail tidak tersedia"
+          subtitle={error || 'Listing yang Anda buka tidak ditemukan.'}
+          actionLabel="Kembali"
+          onAction={() => router.back()}
         />
       </View>
     );
   }
 
-  const title = getListingTitle(car);
-  const variantName = car.variant?.name || '';
-  const images = (car.images || []).map((img) => resolveImageUrl(img)).filter(Boolean) as string[];
-  const sellerInitial = car.seller?.fullName?.charAt(0) || '?';
-
-  const specs: { label: string; value: string; icon: IoniconsName }[] = [
-    { label: 'Transmisi', value: car.transmission, icon: 'cog' },
-    { label: 'Bahan Bakar', value: car.fuelType, icon: 'flash' },
-    { label: 'Kilometer', value: formatMileage(car.mileage), icon: 'speedometer' },
-    { label: 'Warna', value: car.color, icon: 'color-palette' },
-    { label: 'Kondisi', value: car.condition === 'baru' ? 'Baru' : 'Bekas', icon: 'car' },
-    { label: 'Tahun', value: String(car.year), icon: 'calendar' },
-  ];
-
   return (
     <View style={styles.screen}>
-      {/* Floating Header */}
-      <View style={[styles.floatingHeader, { paddingTop: insets.top + 4 }]}>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
+      <StatusBar style="dark" />
+
+      <View style={[styles.headerOverlay, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
-        <View style={styles.headerRight}>
-          <TouchableOpacity style={styles.headerBtn} onPress={handleShare}>
-            <Ionicons name="share-outline" size={22} color={Colors.text} />
+
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
+            <Ionicons name="share-outline" size={20} color={Colors.text} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => setIsFavorite(!isFavorite)}
+            style={styles.headerButton}
+            onPress={() => setIsFavorite((prev) => !prev)}
           >
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
-              size={22}
+              size={20}
               color={isFavorite ? Colors.error : Colors.text}
             />
           </TouchableOpacity>
@@ -168,172 +158,135 @@ export default function ListingDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 112 }}
       >
-        {/* Image Carousel */}
-        <View>
-          {images.length > 0 ? (
-            <FlatList
-              data={images}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) => {
-                setActiveImageIndex(Math.round(e.nativeEvent.contentOffset.x / width));
-              }}
-              renderItem={({ item }) => (
-                <Image
-                  source={{ uri: item }}
-                  style={styles.carouselImage}
-                  contentFit="cover"
-                  transition={300}
-                />
-              )}
-              keyExtractor={(_, i) => i.toString()}
-            />
-          ) : (
-            <Image
-              source={require('@/assets/images/car-placeholder.png')}
-              style={styles.carouselImage}
-              contentFit="cover"
-            />
-          )}
-          {images.length > 1 && (
-            <>
-              <View style={styles.dotsContainer}>
-                {images.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[styles.dot, activeImageIndex === i && styles.dotActive]}
-                  />
-                ))}
-              </View>
-              <View style={styles.imageCounter}>
-                <Ionicons name="image" size={14} color={Colors.white} />
-                <Text style={styles.imageCounterText}>
-                  {activeImageIndex + 1}/{images.length}
-                </Text>
-              </View>
-            </>
-          )}
+        <View style={[styles.heroWrap, { height: width * 0.82 }]}>
+          <Image
+            source={selectedImage ? { uri: selectedImage } : require('@/assets/images/onboarding-hero.png')}
+            style={styles.heroImage}
+            contentFit="cover"
+            transition={250}
+          />
+          <View style={styles.viewerBadge}>
+            <Text style={styles.viewerBadgeText}>360°</Text>
+          </View>
         </View>
 
-        {/* Main Info */}
-        <View style={styles.mainInfo}>
-          <View style={styles.conditionRow}>
-            <View style={styles.yearBadge}>
-              <Text style={styles.yearBadgeText}>{car.year}</Text>
+        {gallery.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.thumbnailRow}
+          >
+            {gallery.map((image, index) => {
+              const active = selectedImageIndex === index;
+              return (
+                <TouchableOpacity
+                  key={image + index}
+                  activeOpacity={0.86}
+                  onPress={() => setSelectedImageIndex(index)}
+                  style={[styles.thumbnailFrame, active && styles.thumbnailFrameActive]}
+                >
+                  <Image source={{ uri: image }} style={styles.thumbnailImage} contentFit="cover" />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
+        <View style={styles.body}>
+          <View style={styles.metaRow}>
+            <View style={styles.metaPill}>
+              <Text style={styles.metaPillText}>{listing.year}</Text>
             </View>
-            <View style={styles.mileageBadge}>
-              <Ionicons name="speedometer-outline" size={14} color={Colors.textSecondary} />
-              <Text style={styles.mileageBadgeText}>{formatMileage(car.mileage)}</Text>
+            <View style={styles.metaPill}>
+              <Text style={styles.metaPillText}>
+                {listing.condition === 'baru' ? 'Baru' : 'Bekas'}
+              </Text>
             </View>
-            {car.isFeatured && (
-              <View style={styles.featuredBadge}>
-                <Ionicons name="star" size={14} color={Colors.white} />
-                <Text style={styles.featuredBadgeText}>Unggulan</Text>
-              </View>
-            )}
+            <View style={styles.metaPill}>
+              <Text style={styles.metaPillText}>{listing.transmission}</Text>
+            </View>
           </View>
-          <Text style={styles.carTitle}>{title}</Text>
-          {variantName ? <Text style={styles.carVariant}>{variantName}</Text> : null}
-          <Text style={styles.carPrice}>{formatRupiahFull(car.price)}</Text>
+
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>
+            {listing.variant?.name || listing.carModel?.modelName}
+          </Text>
+          <Text style={styles.price}>{formatRupiahFull(listing.price)}</Text>
+
           <View style={styles.locationRow}>
-            <Ionicons name="location" size={16} color={Colors.primary} />
+            <Ionicons name="location-outline" size={16} color={Colors.textSecondary} />
             <Text style={styles.locationText}>
-              {car.locationCity}{car.locationProvince ? `, ${car.locationProvince}` : ''}
+              {listing.locationCity}
+              {listing.locationProvince ? `, ${listing.locationProvince}` : ''}
             </Text>
           </View>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Ionicons name="eye-outline" size={14} color={Colors.textTertiary} />
-              <Text style={styles.statText}>{car.viewCount} dilihat</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Ionicons name="time-outline" size={14} color={Colors.textTertiary} />
-              <Text style={styles.statText}>{timeAgo(car.createdAt)}</Text>
-            </View>
-          </View>
-        </View>
 
-        {/* Quick Specs */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Spesifikasi</Text>
-          <View style={styles.specsGrid}>
-            {specs.map((spec, i) => (
-              <View key={i} style={[styles.specItem, Shadows.small]}>
-                <View style={styles.specIconBg}>
-                  <Ionicons name={spec.icon} size={18} color={Colors.primary} />
+          <View style={styles.specGrid}>
+            {[
+              { icon: 'speedometer-outline' as const, label: 'Kilometer', value: formatMileage(listing.mileage) },
+              { icon: 'flash-outline' as const, label: 'Bahan Bakar', value: listing.fuelType },
+              { icon: 'color-palette-outline' as const, label: 'Warna', value: listing.color || '-' },
+              { icon: 'eye-outline' as const, label: 'Dilihat', value: `${listing.viewCount}` },
+            ].map((spec) => (
+              <View key={spec.label} style={[styles.specCard, Shadows.small]}>
+                <View style={styles.specIcon}>
+                  <Ionicons name={spec.icon} size={18} color={Colors.text} />
                 </View>
                 <Text style={styles.specLabel}>{spec.label}</Text>
                 <Text style={styles.specValue}>{spec.value}</Text>
               </View>
             ))}
           </View>
-        </View>
 
-        {/* Description */}
-        {car.description ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Deskripsi</Text>
-            <View style={[styles.descCard, Shadows.small]}>
-              <Text style={styles.descText}>{car.description}</Text>
-            </View>
+          <View style={styles.descriptionSection}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.descriptionText}>
+              {listing.description || 'Penjual belum menambahkan deskripsi untuk mobil ini.'}
+            </Text>
           </View>
-        ) : null}
 
-        {/* Seller Info */}
-        {car.seller && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Penjual</Text>
+          {listing.seller ? (
             <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push(`/seller/${car.seller.id}`)}
-              style={[styles.sellerCard, Shadows.medium]}
+              activeOpacity={0.86}
+              style={[styles.sellerCard, Shadows.small]}
+              onPress={() => router.push(`/seller/${listing.seller.id}`)}
             >
-              <View style={styles.sellerRow}>
-                <View style={styles.sellerAvatar}>
-                  <Text style={styles.sellerAvatarText}>{sellerInitial}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={styles.sellerNameRow}>
-                    <Text style={styles.sellerName}>{car.seller.fullName}</Text>
-                  </View>
-                  <Text style={styles.sellerMeta}>
-                    {car.seller.location || car.locationCity} · Member sejak{' '}
-                    {new Date(car.seller.createdAt).getFullYear()}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+              <View style={styles.sellerAvatar}>
+                <Text style={styles.sellerAvatarText}>
+                  {listing.seller.fullName?.charAt(0).toUpperCase() || 'M'}
+                </Text>
               </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sellerName}>{listing.seller.fullName}</Text>
+                <Text style={styles.sellerSubtitle}>
+                  {listing.seller.location || 'Penjual Mediator'} • Verified Seller
+                </Text>
+              </View>
+
+              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
             </TouchableOpacity>
-          </View>
-        )}
+          ) : null}
+        </View>
       </ScrollView>
 
-      {/* Bottom CTA */}
-      <View style={[styles.bottomCta, { paddingBottom: insets.bottom + 12 }]}>
-        <View style={styles.bottomPriceContainer}>
-          <Text style={styles.bottomPriceLabel}>Harga</Text>
-          <Text style={styles.bottomPrice}>{formatRupiahFull(car.price)}</Text>
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+        <View>
+          <Text style={styles.bottomLabel}>Harga</Text>
+          <Text style={styles.bottomPrice}>{formatRupiahFull(listing.price)}</Text>
         </View>
+
         <TouchableOpacity
-          activeOpacity={0.85}
-          style={{ flex: 1 }}
-          onPress={handleContact}
-          disabled={contacting}
+          activeOpacity={0.86}
+          onPress={handleWhatsApp}
+          style={[styles.whatsAppButton, Shadows.blue]}
         >
-          <LinearGradient
-            colors={[Colors.gradientStart, Colors.gradientEnd]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.contactBtn, Shadows.blue]}
-          >
-            <Ionicons name="logo-whatsapp" size={20} color={Colors.white} />
-            <Text style={styles.contactBtnText}>
-              {contacting ? 'Memuat...' : isLoggedIn ? 'WhatsApp' : 'Masuk untuk WhatsApp'}
-            </Text>
-          </LinearGradient>
+          <Ionicons name="logo-whatsapp" size={18} color={Colors.white} />
+          <Text style={styles.whatsAppButtonText}>
+            {contacting ? 'Memuat...' : 'WhatsApp'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -345,292 +298,240 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  floatingHeader: {
+  headerOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+    zIndex: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 8,
-    zIndex: 10,
   },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+  headerActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  headerButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadows.small,
+    backgroundColor: 'rgba(255,255,255,0.92)',
   },
-  headerRight: {
-    flexDirection: 'row',
-    gap: 8,
+  heroWrap: {
+    backgroundColor: Colors.backgroundSecondary,
   },
-  carouselImage: {
-    width,
-    height: width * 0.7,
+  heroImage: {
+    width: '100%',
+    height: '100%',
   },
-  dotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: -24,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.4)',
-  },
-  dotActive: {
-    width: 24,
-    backgroundColor: Colors.white,
-  },
-  imageCounter: {
+  viewerBadge: {
     position: 'absolute',
-    bottom: 36,
-    right: 16,
-    flexDirection: 'row',
+    bottom: 16,
+    left: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    justifyContent: 'center',
   },
-  imageCounterText: {
-    fontSize: 12,
-    fontWeight: '700',
+  viewerBadgeText: {
+    fontSize: 13,
+    fontWeight: '900',
     color: Colors.white,
   },
-  mainInfo: {
-    padding: 20,
-    backgroundColor: Colors.card,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    ...Shadows.small,
+  thumbnailRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    gap: 10,
   },
-  conditionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10,
-  },
-  yearBadge: {
-    backgroundColor: Colors.primarySoft,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  yearBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  mileageBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  thumbnailFrame: {
+    width: 78,
+    height: 58,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
     backgroundColor: Colors.backgroundSecondary,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 8,
   },
-  mileageBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
+  thumbnailFrameActive: {
+    borderColor: Colors.text,
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+  },
+  body: {
+    paddingHorizontal: 20,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  metaPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.backgroundSecondary,
+  },
+  metaPillText: {
+    fontSize: 12,
+    fontWeight: '800',
     color: Colors.textSecondary,
   },
-  featuredBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: Colors.warning,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  featuredBadgeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.white,
-  },
-  carTitle: {
-    fontSize: 24,
+  title: {
+    marginTop: 18,
+    fontSize: 34,
     fontWeight: '900',
     color: Colors.text,
-    letterSpacing: -0.5,
+    letterSpacing: -1.2,
   },
-  carVariant: {
+  subtitle: {
+    marginTop: 6,
     fontSize: 16,
-    color: Colors.textSecondary,
     fontWeight: '600',
-    marginTop: 4,
+    color: Colors.textSecondary,
   },
-  carPrice: {
-    fontSize: 26,
+  price: {
+    marginTop: 18,
+    fontSize: 30,
     fontWeight: '900',
-    color: Colors.primary,
-    marginTop: 12,
+    color: Colors.text,
     letterSpacing: -0.8,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
+    gap: 8,
+    marginTop: 10,
   },
   locationText: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '600',
     color: Colors.textSecondary,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.borderLight,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.textTertiary,
-  },
-  section: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Colors.text,
-    letterSpacing: -0.3,
-    marginBottom: 14,
-  },
-  specsGrid: {
+  specGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    rowGap: 12,
+    marginTop: 24,
   },
-  specItem: {
-    width: (width - 50) / 3,
+  specCard: {
+    width: '48%',
     backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
-    gap: 6,
+    borderRadius: 22,
+    padding: 16,
   },
-  specIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: Colors.primarySoftest,
+  specIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: Colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 12,
   },
   specLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: Colors.textTertiary,
   },
   specValue: {
-    fontSize: 12,
+    marginTop: 4,
+    fontSize: 15,
     fontWeight: '800',
     color: Colors.text,
-    textAlign: 'center',
   },
-  descCard: {
-    backgroundColor: Colors.card,
-    borderRadius: 16,
-    padding: 16,
+  descriptionSection: {
+    marginTop: 26,
   },
-  descText: {
-    fontSize: 14,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: Colors.text,
+    letterSpacing: -0.6,
+    marginBottom: 10,
+  },
+  descriptionText: {
+    fontSize: 15,
+    lineHeight: 24,
     color: Colors.textSecondary,
-    lineHeight: 22,
-    fontWeight: '500',
   },
   sellerCard: {
-    backgroundColor: Colors.card,
-    borderRadius: 18,
-    padding: 18,
-  },
-  sellerRow: {
+    marginTop: 24,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    backgroundColor: Colors.card,
+    borderRadius: 24,
+    padding: 16,
   },
   sellerAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: Colors.primarySoft,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sellerAvatarText: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
-    color: Colors.primary,
-  },
-  sellerNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    color: Colors.white,
   },
   sellerName: {
     fontSize: 16,
     fontWeight: '800',
     color: Colors.text,
   },
-  sellerMeta: {
+  sellerSubtitle: {
+    marginTop: 4,
     fontSize: 13,
-    color: Colors.textTertiary,
-    fontWeight: '500',
-    marginTop: 2,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
-  bottomCta: {
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    backgroundColor: Colors.card,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    backgroundColor: Colors.background,
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
-    ...Shadows.medium,
   },
-  bottomPriceContainer: {},
-  bottomPriceLabel: {
-    fontSize: 11,
-    fontWeight: '600',
+  bottomLabel: {
+    fontSize: 12,
+    fontWeight: '700',
     color: Colors.textTertiary,
   },
   bottomPrice: {
+    marginTop: 2,
     fontSize: 18,
     fontWeight: '900',
-    color: Colors.primary,
-    letterSpacing: -0.5,
+    color: Colors.text,
   },
-  contactBtn: {
+  whatsAppButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    height: 50,
-    borderRadius: 16,
+    gap: 10,
+    height: 54,
+    paddingHorizontal: 24,
+    borderRadius: 22,
+    backgroundColor: Colors.primary,
   },
-  contactBtnText: {
-    fontSize: 16,
+  whatsAppButtonText: {
+    fontSize: 15,
     fontWeight: '800',
     color: Colors.white,
   },

@@ -30,25 +30,26 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: Colors.tabBackground,
           borderTopWidth: 0,
-          height: Platform.OS === "ios" ? 88 : 68,
-          paddingBottom: Platform.OS === "ios" ? 25 : 10,
-          paddingTop: 8,
+          height: Platform.OS === "ios" ? 86 : 72,
+          paddingBottom: Platform.OS === "ios" ? 22 : 10,
+          paddingTop: 10,
+          paddingHorizontal: 8,
           ...Shadows.medium,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "600",
-          marginTop: 2,
+          fontWeight: "700",
+          marginTop: 4,
         },
       }}
     >
       <Tabs.Screen
         name="marketplace"
         options={{
-          title: "Marketplace",
+          title: "Home",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
-              name={focused ? "car-sport" : "car-sport-outline"}
+              name={focused ? "home" : "home-outline"}
               color={color}
               focused={focused}
             />
@@ -103,17 +104,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: 48,
-    height: 32,
+    height: 30,
   },
   iconContainerActive: {
     // active state handled by indicator
   },
   activeIndicator: {
     position: "absolute",
-    bottom: -4,
-    width: 20,
+    bottom: -6,
+    width: 28,
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.text,
   },
 });

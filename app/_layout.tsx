@@ -6,7 +6,7 @@ import Colors from '@/constants/Colors';
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="light" backgroundColor={Colors.primaryDark} />
+      <StatusBar style="auto" />
       <Stack
         screenOptions={{
           headerShown: false,

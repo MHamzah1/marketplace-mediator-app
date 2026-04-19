@@ -1,78 +1,77 @@
-/**
- * Mediator App Color Palette
- * Blue theme with white secondary
- */
-
 const Colors = {
-  // Primary Blue
-  primary: '#2563EB',
-  primaryDark: '#1D4ED8',
-  primaryDarker: '#1E40AF',
-  primaryLight: '#3B82F6',
-  primaryLighter: '#60A5FA',
-  primarySoft: '#DBEAFE',
-  primarySoftest: '#EFF6FF',
+  // Primary neutral palette inspired by the Figma mobile kit
+  primary: '#1F222A',
+  primaryDark: '#181A20',
+  primaryDarker: '#111318',
+  primaryLight: '#35383F',
+  primaryLighter: '#494E57',
+  primarySoft: '#F3F5F7',
+  primarySoftest: '#FAFBFC',
 
-  // Gradient
-  gradientStart: '#1E40AF',
-  gradientMiddle: '#2563EB',
-  gradientEnd: '#0284C7',
+  // Gradient / hero surfaces
+  gradientStart: '#181A20',
+  gradientMiddle: '#1F222A',
+  gradientEnd: '#2C313A',
 
-  // Accent (Sky Blue)
-  accent: '#0EA5E9',
-  accentLight: '#38BDF8',
-  accentSoft: '#E0F2FE',
+  // Accent
+  accent: '#246BFD',
+  accentLight: '#6EA8FE',
+  accentSoft: '#EAF2FF',
 
   // Background & Surface
-  background: '#F8FAFC',
-  backgroundSecondary: '#F1F5F9',
+  background: '#FFFFFF',
+  backgroundSecondary: '#F7F8FA',
   surface: '#FFFFFF',
+  surfaceDark: '#1F222A',
   card: '#FFFFFF',
+  cardDark: '#1F222A',
+  inputFill: '#F7F8FA',
+  inputFillDark: '#262A34',
 
   // Text
-  text: '#0F172A',
-  textSecondary: '#475569',
-  textTertiary: '#94A3B8',
+  text: '#1B1E28',
+  textSecondary: '#61677D',
+  textTertiary: '#9EA3AE',
   textInverse: '#FFFFFF',
-  textAccent: '#2563EB',
+  textAccent: '#246BFD',
 
   // Border
-  border: '#E2E8F0',
-  borderLight: '#F1F5F9',
-  borderFocus: '#2563EB',
+  border: '#EEEEEE',
+  borderLight: '#F3F4F6',
+  borderFocus: '#1F222A',
 
   // Status
-  success: '#10B981',
-  successLight: '#D1FAE5',
-  warning: '#F59E0B',
-  warningLight: '#FEF3C7',
-  error: '#EF4444',
-  errorLight: '#FEE2E2',
-  info: '#3B82F6',
-  infoLight: '#DBEAFE',
+  success: '#1FBF75',
+  successLight: '#EAFBF2',
+  warning: '#FFB020',
+  warningLight: '#FFF6E6',
+  error: '#FF616D',
+  errorLight: '#FFF1F3',
+  info: '#246BFD',
+  infoLight: '#EAF2FF',
 
   // Neutral
   white: '#FFFFFF',
   black: '#000000',
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  overlayLight: 'rgba(0, 0, 0, 0.3)',
+  overlay: 'rgba(0, 0, 0, 0.58)',
+  overlayLight: 'rgba(0, 0, 0, 0.18)',
 
-  // Shadows (used in shadow styles)
+  // Shadows
   shadowColor: '#000000',
 
   // Tab bar
-  tabActive: '#2563EB',
-  tabInactive: '#94A3B8',
+  tabActive: '#1B1E28',
+  tabInactive: '#8F959E',
   tabBackground: '#FFFFFF',
 
-  // Category colors
-  categoryAll: '#2563EB',
-  categorySUV: '#7C3AED',
-  categorySedan: '#0891B2',
-  categoryHatchback: '#059669',
-  categoryMPV: '#D97706',
-  categoryPickup: '#DC2626',
-  categorySport: '#E11D48',
+  // Category accents retained for non-home modules
+  categoryAll: '#1F222A',
+  categorySUV: '#635BFF',
+  categorySedan: '#246BFD',
+  categoryHatchback: '#1FBF75',
+  categoryMPV: '#FF9F1C',
+  categoryPickup: '#FF616D',
+  categorySport: '#FFB020',
 };
 
 export const Shadows = {
@@ -80,28 +79,28 @@ export const Shadows = {
     shadowColor: Colors.shadowColor,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 2,
   },
   medium: {
     shadowColor: Colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
-    shadowRadius: 12,
+    shadowRadius: 18,
     elevation: 4,
   },
   large: {
     shadowColor: Colors.shadowColor,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.18,
     shadowRadius: 24,
     elevation: 8,
   },
   blue: {
-    shadowColor: Colors.primary,
+    shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
     elevation: 6,
   },
 };

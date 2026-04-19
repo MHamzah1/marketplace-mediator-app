@@ -16,7 +16,6 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
 import type { Listing, SellerProfile, Pagination } from '@/types';
 import { fetchSellerProfile, fetchListings } from '@/lib/api/marketplaceService';
-import { timeAgo } from '@/lib/utils';
 
 export default function SellerProfileScreen() {
   const router = useRouter();
@@ -30,12 +29,7 @@ export default function SellerProfileScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    if (!id) return;
-    loadData();
-  }, [id]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [profileRes, listingsRes] = await Promise.all([
@@ -50,7 +44,12 @@ export default function SellerProfileScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    loadData();
+  }, [id, loadData]);
 
   const onEndReached = useCallback(() => {
     if (loadingMore || loading) return;

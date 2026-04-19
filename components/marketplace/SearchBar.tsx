@@ -11,6 +11,8 @@ interface SearchBarProps {
   onPress?: () => void;
   editable?: boolean;
   autoFocus?: boolean;
+  showFilterButton?: boolean;
+  onFilterPress?: () => void;
 }
 
 export default function SearchBar({
@@ -20,6 +22,8 @@ export default function SearchBar({
   onPress,
   editable = false,
   autoFocus = false,
+  showFilterButton = true,
+  onFilterPress,
 }: SearchBarProps) {
   const router = useRouter();
 
@@ -39,7 +43,7 @@ export default function SearchBar({
         style={styles.container}
       >
         <View style={styles.iconContainer}>
-          <Ionicons name="search" size={20} color={Colors.primary} />
+          <Ionicons name="search" size={18} color={Colors.textTertiary} />
         </View>
         <View style={styles.textContainer}>
           <TextInput
@@ -50,9 +54,11 @@ export default function SearchBar({
             pointerEvents="none"
           />
         </View>
-        <View style={styles.filterButton}>
-          <Ionicons name="options-outline" size={20} color={Colors.primary} />
-        </View>
+        {showFilterButton ? (
+          <View style={styles.trailingButton}>
+            <Ionicons name="options-outline" size={18} color={Colors.text} />
+          </View>
+        ) : null}
       </TouchableOpacity>
     );
   }
@@ -60,7 +66,7 @@ export default function SearchBar({
   return (
     <View style={styles.container}>
       <View style={styles.iconContainer}>
-        <Ionicons name="search" size={20} color={Colors.primary} />
+        <Ionicons name="search" size={18} color={Colors.textTertiary} />
       </View>
       <TextInput
         style={styles.input}
@@ -71,8 +77,12 @@ export default function SearchBar({
         autoFocus={autoFocus}
         returnKeyType="search"
       />
-      {value ? (
-        <TouchableOpacity onPress={() => onChangeText?.('')} style={styles.filterButton}>
+      {showFilterButton ? (
+        <TouchableOpacity onPress={onFilterPress} style={styles.trailingButton}>
+          <Ionicons name="options-outline" size={18} color={Colors.text} />
+        </TouchableOpacity>
+      ) : value ? (
+        <TouchableOpacity onPress={() => onChangeText?.('')} style={styles.trailingButton}>
           <Ionicons name="close-circle" size={20} color={Colors.textTertiary} />
         </TouchableOpacity>
       ) : null}
@@ -84,11 +94,13 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
-    borderRadius: 16,
-    paddingHorizontal: 4,
-    height: 52,
-    ...Shadows.medium,
+    backgroundColor: Colors.inputFill,
+    borderRadius: 18,
+    paddingHorizontal: 6,
+    height: 56,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+    ...Shadows.small,
   },
   iconContainer: {
     width: 44,
@@ -103,13 +115,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: Colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  filterButton: {
+  trailingButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
+    backgroundColor: Colors.white,
   },
 });

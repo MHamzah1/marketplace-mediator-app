@@ -10,8 +10,14 @@ export default function AuthLayout() {
         animation: 'slide_from_right',
       }}
     >
+      <Stack.Screen name="welcome" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="login-password" />
       <Stack.Screen name="register" />
+      <Stack.Screen name="account-setup" />
+      <Stack.Screen name="forgot-password" />
+      <Stack.Screen name="verify-reset" />
+      <Stack.Screen name="reset-password" />
     </Stack>
   );
 }
