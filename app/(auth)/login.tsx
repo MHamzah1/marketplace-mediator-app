@@ -40,7 +40,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
@@ -48,7 +48,7 @@ export default function LoginScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.white} />
+          <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -63,7 +63,7 @@ export default function LoginScreen() {
         <Text style={styles.subtitle}>{reasonMessage}</Text>
 
         <View style={styles.socialSection}>
-          <AuthSocialButtons dark onPress={handleSocialPress} />
+          <AuthSocialButtons onPress={handleSocialPress} />
         </View>
 
         <View style={styles.dividerRow}>
@@ -83,7 +83,7 @@ export default function LoginScreen() {
               },
             })
           }
-          variant="light"
+          variant="dark"
         />
 
         <View style={styles.footerRow}>
@@ -110,7 +110,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: Colors.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: Colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontWeight: '900',
-    color: Colors.white,
+    color: Colors.text,
     textAlign: 'center',
     letterSpacing: -1,
   },
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 15,
     lineHeight: 23,
-    color: 'rgba(255,255,255,0.72)',
+    color: Colors.textSecondary,
     textAlign: 'center',
   },
   socialSection: {
@@ -167,12 +167,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: Colors.border,
   },
   dividerText: {
     fontSize: 13,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.58)',
+    color: Colors.textTertiary,
   },
   footerRow: {
     flexDirection: 'row',
@@ -183,12 +183,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.62)',
+    color: Colors.textSecondary,
     fontWeight: '600',
   },
   footerLink: {
     fontSize: 14,
-    color: Colors.white,
+    color: Colors.primary,
     fontWeight: '800',
   },
 });

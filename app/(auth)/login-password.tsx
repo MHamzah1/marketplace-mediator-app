@@ -69,7 +69,7 @@ export default function LoginPasswordScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -85,7 +85,7 @@ export default function LoginPasswordScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={22} color={Colors.white} />
+            <Ionicons name="arrow-back" size={22} color={Colors.text} />
           </TouchableOpacity>
 
           <View style={styles.logoCircle}>
@@ -99,7 +99,6 @@ export default function LoginPasswordScreen() {
 
           <View style={styles.form}>
             <AuthInputField
-              dark
               label="Email"
               icon="mail-outline"
               value={email}
@@ -109,7 +108,6 @@ export default function LoginPasswordScreen() {
               autoComplete="email"
             />
             <AuthInputField
-              dark
               label="Password"
               icon="lock-closed-outline"
               value={password}
@@ -122,7 +120,6 @@ export default function LoginPasswordScreen() {
 
             <View style={styles.metaRow}>
               <AuthCheckbox
-                dark
                 checked={rememberMe}
                 onPress={() => setRememberMe((prev) => !prev)}
                 label="Remember me"
@@ -137,7 +134,7 @@ export default function LoginPasswordScreen() {
               icon="log-in-outline"
               loading={loading}
               onPress={handleLogin}
-              variant="light"
+              variant="dark"
             />
           </View>
         </View>
@@ -149,7 +146,7 @@ export default function LoginPasswordScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: Colors.background,
   },
   container: {
     paddingHorizontal: 24,
@@ -158,7 +155,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: Colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -176,7 +173,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     fontSize: 30,
     fontWeight: '900',
-    color: Colors.white,
+    color: Colors.text,
     textAlign: 'center',
     letterSpacing: -0.8,
   },
@@ -184,7 +181,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 15,
     lineHeight: 23,
-    color: 'rgba(255,255,255,0.72)',
+    color: Colors.textSecondary,
     textAlign: 'center',
   },
   form: {
@@ -199,6 +196,6 @@ const styles = StyleSheet.create({
   metaLink: {
     fontSize: 13,
     fontWeight: '700',
-    color: Colors.white,
+    color: Colors.primary,
   },
 });
