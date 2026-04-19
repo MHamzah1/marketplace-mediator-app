@@ -40,7 +40,7 @@ export default function WelcomeScreen() {
           contentPosition="top"
         />
         <LinearGradient
-          colors={['transparent', 'rgba(24,26,32,0.38)', 'rgba(24,26,32,0.96)']}
+          colors={['transparent', 'rgba(36,107,253,0.32)', 'rgba(21,87,229,0.96)']}
           style={styles.heroOverlay}
         />
       </View>

@@ -1,44 +1,44 @@
 const Colors = {
-  // Primary neutral palette inspired by the Figma mobile kit
-  primary: '#1F222A',
-  primaryDark: '#181A20',
-  primaryDarker: '#111318',
-  primaryLight: '#35383F',
-  primaryLighter: '#494E57',
-  primarySoft: '#F3F5F7',
-  primarySoftest: '#FAFBFC',
+  // Blue and white palette for the Mediator app
+  primary: '#246BFD',
+  primaryDark: '#1557E5',
+  primaryDarker: '#0E46BE',
+  primaryLight: '#5F96FF',
+  primaryLighter: '#9EC0FF',
+  primarySoft: '#EAF2FF',
+  primarySoftest: '#F5F9FF',
 
   // Gradient / hero surfaces
-  gradientStart: '#181A20',
-  gradientMiddle: '#1F222A',
-  gradientEnd: '#2C313A',
+  gradientStart: '#1557E5',
+  gradientMiddle: '#246BFD',
+  gradientEnd: '#6EA8FE',
 
   // Accent
   accent: '#246BFD',
-  accentLight: '#6EA8FE',
+  accentLight: '#8DB5FF',
   accentSoft: '#EAF2FF',
 
   // Background & Surface
   background: '#FFFFFF',
-  backgroundSecondary: '#F7F8FA',
+  backgroundSecondary: '#F5F9FF',
   surface: '#FFFFFF',
-  surfaceDark: '#1F222A',
+  surfaceDark: '#1557E5',
   card: '#FFFFFF',
-  cardDark: '#1F222A',
-  inputFill: '#F7F8FA',
-  inputFillDark: '#262A34',
+  cardDark: '#1557E5',
+  inputFill: '#F4F8FF',
+  inputFillDark: '#2D75FF',
 
   // Text
-  text: '#1B1E28',
-  textSecondary: '#61677D',
-  textTertiary: '#9EA3AE',
+  text: '#16213D',
+  textSecondary: '#5B6B8A',
+  textTertiary: '#9AA9C3',
   textInverse: '#FFFFFF',
   textAccent: '#246BFD',
 
   // Border
-  border: '#EEEEEE',
-  borderLight: '#F3F4F6',
-  borderFocus: '#1F222A',
+  border: '#D8E5FF',
+  borderLight: '#EAF2FF',
+  borderFocus: '#246BFD',
 
   // Status
   success: '#1FBF75',
@@ -60,12 +60,12 @@ const Colors = {
   shadowColor: '#000000',
 
   // Tab bar
-  tabActive: '#1B1E28',
-  tabInactive: '#8F959E',
+  tabActive: '#246BFD',
+  tabInactive: '#93A3BF',
   tabBackground: '#FFFFFF',
 
   // Category accents retained for non-home modules
-  categoryAll: '#1F222A',
+  categoryAll: '#246BFD',
   categorySUV: '#635BFF',
   categorySedan: '#246BFD',
   categoryHatchback: '#1FBF75',
