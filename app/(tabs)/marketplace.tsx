@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FilterSheet, {
@@ -51,6 +52,13 @@ export default function MarketplaceScreen() {
   const [page, setPage] = useState(1);
   const [activeBanner, setActiveBanner] = useState(0);
   const filterReadyRef = useRef(false);
+
+  const BANNER_GRADIENTS: [string, string][] = [
+    ['#FF6B35', '#C0392B'],
+    ['#6C5CE7', '#A29BFE'],
+    ['#00B4D8', '#0077B6'],
+    ['#E91E8C', '#9B1166'],
+  ];
 
   const selectedBrandId = filters.brandId;
   const setSelectedBrandId = useCallback(
@@ -302,18 +310,22 @@ export default function MarketplaceScreen() {
               setActiveBanner(index);
             }}
           >
-            {featuredItems.map((item) => {
+            {featuredItems.map((item, index) => {
               const imageUri = getListingImage(item.images);
+              const grad = BANNER_GRADIENTS[index % BANNER_GRADIENTS.length];
               return (
                 <TouchableOpacity
                   key={item.id}
                   activeOpacity={0.86}
-                  style={[
-                    styles.bannerCard,
-                    { width: bannerWidth, backgroundColor: colors.primary },
-                  ]}
+                  style={[styles.bannerCard, { width: bannerWidth }]}
                   onPress={() => router.push(`/listing/${item.id}`)}
                 >
+                  <LinearGradient
+                    colors={grad}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
                   <View style={styles.bannerCopy}>
                     <Text style={[styles.bannerEyebrow, { color: 'rgba(255,255,255,0.72)' }]}>
                       Pilihan Mediator

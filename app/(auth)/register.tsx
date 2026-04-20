@@ -93,7 +93,7 @@ export default function RegisterScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -109,7 +109,7 @@ export default function RegisterScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
           >
-            <Ionicons name="arrow-back" size={22} color={Colors.white} />
+            <Ionicons name="arrow-back" size={22} color={Colors.text} />
           </TouchableOpacity>
 
           <View style={styles.logoCircle}>
@@ -123,7 +123,6 @@ export default function RegisterScreen() {
 
           <View style={styles.form}>
             <AuthInputField
-              dark
               label="Nama Lengkap"
               icon="person-outline"
               value={fullName}
@@ -133,7 +132,6 @@ export default function RegisterScreen() {
               autoComplete="name"
             />
             <AuthInputField
-              dark
               label="Email"
               icon="mail-outline"
               value={email}
@@ -143,7 +141,6 @@ export default function RegisterScreen() {
               autoComplete="email"
             />
             <AuthInputField
-              dark
               label="Password"
               icon="lock-closed-outline"
               value={password}
@@ -154,7 +151,6 @@ export default function RegisterScreen() {
               autoComplete="new-password"
             />
             <AuthInputField
-              dark
               label="Konfirmasi Password"
               icon="shield-checkmark-outline"
               value={confirmPassword}
@@ -165,7 +161,6 @@ export default function RegisterScreen() {
             />
 
             <AuthCheckbox
-              dark
               checked={rememberMe}
               onPress={() => setRememberMe((prev) => !prev)}
               label="Remember me"
@@ -176,7 +171,7 @@ export default function RegisterScreen() {
               icon="person-add-outline"
               loading={loading}
               onPress={handleRegister}
-              variant="light"
+              variant="dark"
             />
 
             <View style={styles.dividerRow}>
@@ -185,7 +180,7 @@ export default function RegisterScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            <AuthSocialButtons dark onPress={handleSocialPress} />
+            <AuthSocialButtons onPress={handleSocialPress} />
 
             <View style={styles.footerRow}>
               <Text style={styles.footerText}>Sudah punya akun?</Text>
@@ -203,7 +198,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: Colors.background,
   },
   container: {
     paddingHorizontal: 24,
@@ -212,7 +207,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: Colors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -230,7 +225,7 @@ const styles = StyleSheet.create({
     marginTop: 22,
     fontSize: 32,
     fontWeight: '900',
-    color: Colors.white,
+    color: Colors.text,
     textAlign: 'center',
     letterSpacing: -0.8,
   },
@@ -238,7 +233,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 15,
     lineHeight: 23,
-    color: 'rgba(255,255,255,0.72)',
+    color: Colors.textSecondary,
     textAlign: 'center',
   },
   form: {
@@ -253,12 +248,12 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: Colors.border,
   },
   dividerText: {
     fontSize: 12,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.5)',
+    color: Colors.textTertiary,
   },
   footerRow: {
     flexDirection: 'row',
@@ -269,12 +264,12 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.62)',
+    color: Colors.textSecondary,
     fontWeight: '600',
   },
   footerLink: {
     fontSize: 14,
     fontWeight: '800',
-    color: Colors.white,
+    color: Colors.primary,
   },
 });
