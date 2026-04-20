@@ -2,7 +2,7 @@
 // subtle accent tones. Exposes both light and dark themes; the default export stays pointing at
 // the light theme so existing screens keep working without touching each import.
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = "light" | "dark";
 
 export interface ThemePalette {
   // Brand
@@ -81,145 +81,146 @@ export interface ThemePalette {
 }
 
 export const LightColors: ThemePalette = {
-  // Black/white monochromatic — primary action is near-black
-  primary: '#181A20',
-  primaryDark: '#0D0E12',
-  primaryDarker: '#000000',
-  primaryLight: '#35383F',
-  primaryLighter: '#70757F',
-  primarySoft: '#F5F5F5',
-  primarySoftest: '#FAFAFA',
+  // Blue + white — clean, modern, pairs well with white surfaces.
+  // Primary blue tuned for high contrast on white (WCAG AA) and strong CTA presence.
+  primary: "#2563EB",
+  primaryDark: "#1D4ED8",
+  primaryDarker: "#1E40AF",
+  primaryLight: "#3B82F6",
+  primaryLighter: "#60A5FA",
+  primarySoft: "#DBEAFE",
+  primarySoftest: "#EFF6FF",
 
-  // Dark hero surfaces (used by forgot-password / reset-password)
-  gradientStart: '#0D0E12',
-  gradientMiddle: '#181A20',
-  gradientEnd: '#1F222A',
+  // Hero / gradient surfaces for splash, reset-password, etc.
+  gradientStart: "#1E40AF",
+  gradientMiddle: "#2563EB",
+  gradientEnd: "#3B82F6",
 
   // Accent: warm amber used for ratings / emphasis
-  accent: '#FFB800',
-  accentLight: '#FFD766',
-  accentSoft: '#FFF7DF',
+  accent: "#F59E0B",
+  accentLight: "#FBBF24",
+  accentSoft: "#FEF3C7",
 
   // Background & Surface
-  background: '#FFFFFF',
-  backgroundSecondary: '#F7F7F8',
-  surface: '#FFFFFF',
-  surfaceDark: '#181A20',
-  card: '#FFFFFF',
-  cardDark: '#1F222A',
-  inputFill: '#F5F5F6',
-  inputFillDark: '#1F222A',
+  background: "#FFFFFF",
+  backgroundSecondary: "#F4F7FC",
+  surface: "#FFFFFF",
+  surfaceDark: "#1D4ED8",
+  card: "#FFFFFF",
+  cardDark: "#1E40AF",
+  inputFill: "#F1F5FB",
+  inputFillDark: "#1E40AF",
 
   // Text
-  text: '#181A20',
-  textSecondary: '#5B6169',
-  textTertiary: '#9CA0A8',
-  textInverse: '#FFFFFF',
-  textAccent: '#181A20',
+  text: "#0F172A",
+  textSecondary: "#475569",
+  textTertiary: "#94A3B8",
+  textInverse: "#FFFFFF",
+  textAccent: "#2563EB",
 
   // Border
-  border: '#E4E6EA',
-  borderLight: '#EFEFF1',
-  borderFocus: '#181A20',
+  border: "#E2E8F0",
+  borderLight: "#EEF2F7",
+  borderFocus: "#2563EB",
 
   // Status
-  success: '#1FBF75',
-  successLight: '#E8F9F0',
-  warning: '#FFB020',
-  warningLight: '#FFF6E6',
-  error: '#FF4D4F',
-  errorLight: '#FFECEC',
-  info: '#3D7BFF',
-  infoLight: '#E8F0FF',
+  success: "#10B981",
+  successLight: "#ECFDF5",
+  warning: "#F59E0B",
+  warningLight: "#FFFBEB",
+  error: "#EF4444",
+  errorLight: "#FEF2F2",
+  info: "#2563EB",
+  infoLight: "#EFF6FF",
 
   // Neutral
-  white: '#FFFFFF',
-  black: '#000000',
-  overlay: 'rgba(0, 0, 0, 0.58)',
-  overlayLight: 'rgba(0, 0, 0, 0.18)',
+  white: "#FFFFFF",
+  black: "#000000",
+  overlay: "rgba(15, 23, 42, 0.58)",
+  overlayLight: "rgba(15, 23, 42, 0.18)",
 
   // Shadows
-  shadowColor: '#000000',
+  shadowColor: "#0F172A",
 
   // Tab bar
-  tabActive: '#181A20',
-  tabInactive: '#9CA0A8',
-  tabBackground: '#FFFFFF',
+  tabActive: "#2563EB",
+  tabInactive: "#94A3B8",
+  tabBackground: "#FFFFFF",
 
   // Category accents
-  categoryAll: '#181A20',
-  categorySUV: '#635BFF',
-  categorySedan: '#181A20',
-  categoryHatchback: '#1FBF75',
-  categoryMPV: '#FF9F1C',
-  categoryPickup: '#FF616D',
-  categorySport: '#FFB020',
+  categoryAll: "#2563EB",
+  categorySUV: "#635BFF",
+  categorySedan: "#2563EB",
+  categoryHatchback: "#10B981",
+  categoryMPV: "#F59E0B",
+  categoryPickup: "#EF4444",
+  categorySport: "#F59E0B",
 };
 
 export const DarkColors: ThemePalette = {
-  // In dark mode the "primary" action surface becomes white-ish — per Figma
-  primary: '#F4F4F5',
-  primaryDark: '#E4E4E7',
-  primaryDarker: '#FFFFFF',
-  primaryLight: '#35383F',
-  primaryLighter: '#5B6169',
-  primarySoft: '#1F222A',
-  primarySoftest: '#181A20',
+  // Dark navy surfaces with a softer sky-blue primary so CTAs stay visible.
+  primary: "#60A5FA",
+  primaryDark: "#3B82F6",
+  primaryDarker: "#2563EB",
+  primaryLight: "#93C5FD",
+  primaryLighter: "#BFDBFE",
+  primarySoft: "#172554",
+  primarySoftest: "#0F1B3F",
 
-  gradientStart: '#0D0E12',
-  gradientMiddle: '#181A20',
-  gradientEnd: '#1F222A',
+  gradientStart: "#0B1220",
+  gradientMiddle: "#111B34",
+  gradientEnd: "#1E3A8A",
 
-  accent: '#FFB800',
-  accentLight: '#FFD766',
-  accentSoft: '#3A2F12',
+  accent: "#FBBF24",
+  accentLight: "#FCD34D",
+  accentSoft: "#3A2F12",
 
-  background: '#0D0E12',
-  backgroundSecondary: '#181A20',
-  surface: '#181A20',
-  surfaceDark: '#0D0E12',
-  card: '#1F222A',
-  cardDark: '#0D0E12',
-  inputFill: '#1F222A',
-  inputFillDark: '#23262E',
+  background: "#0B1220",
+  backgroundSecondary: "#111B34",
+  surface: "#111B34",
+  surfaceDark: "#0B1220",
+  card: "#111B34",
+  cardDark: "#0B1220",
+  inputFill: "#152043",
+  inputFillDark: "#1B2A55",
 
-  text: '#F4F4F5',
-  textSecondary: '#B0B4BC',
-  textTertiary: '#6F7580',
-  textInverse: '#181A20',
-  textAccent: '#F4F4F5',
+  text: "#E2E8F0",
+  textSecondary: "#94A3B8",
+  textTertiary: "#64748B",
+  textInverse: "#0F172A",
+  textAccent: "#93C5FD",
 
-  border: '#23262E',
-  borderLight: '#1F222A',
-  borderFocus: '#F4F4F5',
+  border: "#1F2A4C",
+  borderLight: "#182340",
+  borderFocus: "#60A5FA",
 
-  success: '#1FBF75',
-  successLight: '#0F2A1F',
-  warning: '#FFB020',
-  warningLight: '#2E2416',
-  error: '#FF6B6D',
-  errorLight: '#2E1919',
-  info: '#6694FF',
-  infoLight: '#18213A',
+  success: "#10B981",
+  successLight: "#0F2B24",
+  warning: "#F59E0B",
+  warningLight: "#2E2416",
+  error: "#F87171",
+  errorLight: "#2E1919",
+  info: "#60A5FA",
+  infoLight: "#16213E",
 
-  white: '#FFFFFF',
-  black: '#000000',
-  overlay: 'rgba(0, 0, 0, 0.72)',
-  overlayLight: 'rgba(0, 0, 0, 0.36)',
+  white: "#FFFFFF",
+  black: "#000000",
+  overlay: "rgba(3, 7, 18, 0.72)",
+  overlayLight: "rgba(3, 7, 18, 0.36)",
 
-  shadowColor: '#000000',
+  shadowColor: "#000000",
 
-  tabActive: '#F4F4F5',
-  tabInactive: '#6F7580',
-  tabBackground: '#0D0E12',
+  tabActive: "#60A5FA",
+  tabInactive: "#64748B",
+  tabBackground: "#0B1220",
 
-  categoryAll: '#F4F4F5',
-  categorySUV: '#8F88FF',
-  categorySedan: '#F4F4F5',
-  categoryHatchback: '#3DD495',
-  categoryMPV: '#FFB35E',
-  categoryPickup: '#FF8D96',
-  categorySport: '#FFC752',
+  categoryAll: "#60A5FA",
+  categorySUV: "#A5B4FC",
+  categorySedan: "#60A5FA",
+  categoryHatchback: "#34D399",
+  categoryMPV: "#FBBF24",
+  categoryPickup: "#F87171",
+  categorySport: "#FCD34D",
 };
 
 // Back-compat default export used by screens that import `Colors` directly.

@@ -15,12 +15,34 @@ import { useTheme } from '@/context/ThemeContext';
 import { Shadows } from '@/constants/Colors';
 import type { Brand } from '@/types';
 
+export type SortBy = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'mileage';
+export type Condition = 'all' | 'baru' | 'bekas';
+export type Transmission = 'all' | 'manual' | 'matic' | 'cvt';
+export type FuelType = 'all' | 'bensin' | 'diesel' | 'hybrid' | 'listrik';
+export type Periode =
+  | 'all'
+  | 'Today'
+  | 'ThisWeek'
+  | 'LastWeek'
+  | 'ThisMonth'
+  | 'LastMonth'
+  | 'ThisYear'
+  | 'LastYear'
+  | 'Last3Months'
+  | 'Last6Months';
+
 export interface MarketplaceFilters {
   brandId: string | null;
-  condition: 'all' | 'baru' | 'bekas';
+  condition: Condition;
   minPrice: string;
   maxPrice: string;
-  sortBy: 'newest' | 'price-asc' | 'price-desc' | 'popular';
+  yearMin: string;
+  yearMax: string;
+  transmission: Transmission;
+  fuelType: FuelType;
+  locationCity: string;
+  periode: Periode;
+  sortBy: SortBy;
 }
 
 interface FilterSheetProps {
@@ -31,24 +53,59 @@ interface FilterSheetProps {
   initial: MarketplaceFilters;
 }
 
-const SORT_OPTIONS: { id: MarketplaceFilters['sortBy']; label: string }[] = [
+const SORT_OPTIONS: { id: SortBy; label: string }[] = [
   { id: 'newest', label: 'Terbaru' },
-  { id: 'popular', label: 'Terpopuler' },
-  { id: 'price-asc', label: 'Harga Terendah' },
-  { id: 'price-desc', label: 'Harga Tertinggi' },
+  { id: 'oldest', label: 'Terlama' },
+  { id: 'price_asc', label: 'Harga Terendah' },
+  { id: 'price_desc', label: 'Harga Tertinggi' },
+  { id: 'mileage', label: 'Kilometer' },
 ];
 
-const CONDITION_OPTIONS: { id: MarketplaceFilters['condition']; label: string }[] = [
+const CONDITION_OPTIONS: { id: Condition; label: string }[] = [
   { id: 'all', label: 'Semua' },
   { id: 'baru', label: 'Baru' },
   { id: 'bekas', label: 'Bekas' },
 ];
 
-const DEFAULT_FILTERS: MarketplaceFilters = {
+const TRANSMISSION_OPTIONS: { id: Transmission; label: string }[] = [
+  { id: 'all', label: 'Semua' },
+  { id: 'manual', label: 'Manual' },
+  { id: 'matic', label: 'Matic' },
+  { id: 'cvt', label: 'CVT' },
+];
+
+const FUEL_OPTIONS: { id: FuelType; label: string }[] = [
+  { id: 'all', label: 'Semua' },
+  { id: 'bensin', label: 'Bensin' },
+  { id: 'diesel', label: 'Diesel' },
+  { id: 'hybrid', label: 'Hybrid' },
+  { id: 'listrik', label: 'Listrik' },
+];
+
+const PERIODE_OPTIONS: { id: Periode; label: string }[] = [
+  { id: 'all', label: 'Semua' },
+  { id: 'Today', label: 'Hari Ini' },
+  { id: 'ThisWeek', label: 'Minggu Ini' },
+  { id: 'LastWeek', label: 'Minggu Lalu' },
+  { id: 'ThisMonth', label: 'Bulan Ini' },
+  { id: 'LastMonth', label: 'Bulan Lalu' },
+  { id: 'Last3Months', label: '3 Bulan' },
+  { id: 'Last6Months', label: '6 Bulan' },
+  { id: 'ThisYear', label: 'Tahun Ini' },
+  { id: 'LastYear', label: 'Tahun Lalu' },
+];
+
+export const DEFAULT_FILTERS: MarketplaceFilters = {
   brandId: null,
   condition: 'all',
   minPrice: '',
   maxPrice: '',
+  yearMin: '',
+  yearMax: '',
+  transmission: 'all',
+  fuelType: 'all',
+  locationCity: '',
+  periode: 'all',
   sortBy: 'newest',
 };
 
@@ -74,6 +131,41 @@ export default function FilterSheet({
     onClose();
   };
 
+  const renderChipRow = <T extends string>(
+    options: { id: T; label: string }[],
+    value: T,
+    onPick: (next: T) => void,
+  ) => (
+    <View style={styles.chipRow}>
+      {options.map((option) => {
+        const active = value === option.id;
+        return (
+          <TouchableOpacity
+            key={option.id}
+            activeOpacity={0.85}
+            onPress={() => onPick(option.id)}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: active ? colors.primary : colors.backgroundSecondary,
+                borderColor: active ? colors.primary : colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                { color: active ? colors.white : colors.textSecondary },
+              ]}
+            >
+              {option.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
@@ -95,72 +187,35 @@ export default function FilterSheet({
           <View style={styles.headerRow}>
             <Text style={[styles.title, { color: colors.text }]}>Sort & Filter</Text>
             <TouchableOpacity onPress={reset}>
-              <Text style={[styles.resetText, { color: colors.textSecondary }]}>Reset</Text>
+              <Text style={[styles.resetText, { color: colors.primary }]}>Reset</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 520 }}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Sort By</Text>
-            <View style={styles.chipRow}>
-              {SORT_OPTIONS.map((option) => {
-                const active = draft.sortBy === option.id;
-                return (
-                  <TouchableOpacity
-                    key={option.id}
-                    activeOpacity={0.85}
-                    onPress={() => setDraft((d) => ({ ...d, sortBy: option.id }))}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? colors.text : colors.backgroundSecondary,
-                        borderColor: active ? colors.text : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: active ? colors.textInverse : colors.textSecondary },
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 560 }}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Urut</Text>
+            {renderChipRow(SORT_OPTIONS, draft.sortBy, (v) => setDraft((d) => ({ ...d, sortBy: v })))}
 
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Condition</Text>
-            <View style={styles.chipRow}>
-              {CONDITION_OPTIONS.map((option) => {
-                const active = draft.condition === option.id;
-                return (
-                  <TouchableOpacity
-                    key={option.id}
-                    activeOpacity={0.85}
-                    onPress={() => setDraft((d) => ({ ...d, condition: option.id }))}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active ? colors.text : colors.backgroundSecondary,
-                        borderColor: active ? colors.text : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: active ? colors.textInverse : colors.textSecondary },
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Kondisi</Text>
+            {renderChipRow(CONDITION_OPTIONS, draft.condition, (v) =>
+              setDraft((d) => ({ ...d, condition: v })),
+            )}
 
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Brand</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Transmisi</Text>
+            {renderChipRow(TRANSMISSION_OPTIONS, draft.transmission, (v) =>
+              setDraft((d) => ({ ...d, transmission: v })),
+            )}
+
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Bahan Bakar</Text>
+            {renderChipRow(FUEL_OPTIONS, draft.fuelType, (v) =>
+              setDraft((d) => ({ ...d, fuelType: v })),
+            )}
+
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Periode</Text>
+            {renderChipRow(PERIODE_OPTIONS, draft.periode, (v) =>
+              setDraft((d) => ({ ...d, periode: v })),
+            )}
+
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Merek</Text>
             <View style={styles.chipRow}>
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -168,18 +223,18 @@ export default function FilterSheet({
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: !draft.brandId ? colors.text : colors.backgroundSecondary,
-                    borderColor: !draft.brandId ? colors.text : colors.border,
+                    backgroundColor: !draft.brandId ? colors.primary : colors.backgroundSecondary,
+                    borderColor: !draft.brandId ? colors.primary : colors.border,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.chipText,
-                    { color: !draft.brandId ? colors.textInverse : colors.textSecondary },
+                    { color: !draft.brandId ? colors.white : colors.textSecondary },
                   ]}
                 >
-                  All
+                  Semua
                 </Text>
               </TouchableOpacity>
               {brands.map((brand) => {
@@ -192,15 +247,15 @@ export default function FilterSheet({
                     style={[
                       styles.chip,
                       {
-                        backgroundColor: active ? colors.text : colors.backgroundSecondary,
-                        borderColor: active ? colors.text : colors.border,
+                        backgroundColor: active ? colors.primary : colors.backgroundSecondary,
+                        borderColor: active ? colors.primary : colors.border,
                       },
                     ]}
                   >
                     <Text
                       style={[
                         styles.chipText,
-                        { color: active ? colors.textInverse : colors.textSecondary },
+                        { color: active ? colors.white : colors.textSecondary },
                       ]}
                     >
                       {brand.name}
@@ -210,11 +265,11 @@ export default function FilterSheet({
               })}
             </View>
 
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Price Range (Rp)</Text>
-            <View style={styles.priceRow}>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Harga (Rp)</Text>
+            <View style={styles.twoColRow}>
               <View
                 style={[
-                  styles.priceInputWrap,
+                  styles.inputWrap,
                   { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
                 ]}
               >
@@ -227,12 +282,12 @@ export default function FilterSheet({
                   placeholder="Min"
                   placeholderTextColor={colors.textTertiary}
                   keyboardType="numeric"
-                  style={[styles.priceInput, { color: colors.text }]}
+                  style={[styles.input, { color: colors.text }]}
                 />
               </View>
               <View
                 style={[
-                  styles.priceInputWrap,
+                  styles.inputWrap,
                   { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
                 ]}
               >
@@ -245,9 +300,66 @@ export default function FilterSheet({
                   placeholder="Max"
                   placeholderTextColor={colors.textTertiary}
                   keyboardType="numeric"
-                  style={[styles.priceInput, { color: colors.text }]}
+                  style={[styles.input, { color: colors.text }]}
                 />
               </View>
+            </View>
+
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Tahun</Text>
+            <View style={styles.twoColRow}>
+              <View
+                style={[
+                  styles.inputWrap,
+                  { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
+                ]}
+              >
+                <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} />
+                <TextInput
+                  value={draft.yearMin}
+                  onChangeText={(v) =>
+                    setDraft((d) => ({ ...d, yearMin: v.replace(/[^0-9]/g, '').slice(0, 4) }))
+                  }
+                  placeholder="Dari"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="numeric"
+                  style={[styles.input, { color: colors.text }]}
+                />
+              </View>
+              <View
+                style={[
+                  styles.inputWrap,
+                  { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
+                ]}
+              >
+                <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} />
+                <TextInput
+                  value={draft.yearMax}
+                  onChangeText={(v) =>
+                    setDraft((d) => ({ ...d, yearMax: v.replace(/[^0-9]/g, '').slice(0, 4) }))
+                  }
+                  placeholder="Sampai"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="numeric"
+                  style={[styles.input, { color: colors.text }]}
+                />
+              </View>
+            </View>
+
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Kota</Text>
+            <View
+              style={[
+                styles.inputWrap,
+                { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons name="location-outline" size={14} color={colors.textTertiary} />
+              <TextInput
+                value={draft.locationCity}
+                onChangeText={(v) => setDraft((d) => ({ ...d, locationCity: v }))}
+                placeholder="Mis. Jakarta, Bandung"
+                placeholderTextColor={colors.textTertiary}
+                style={[styles.input, { color: colors.text }]}
+              />
             </View>
           </ScrollView>
 
@@ -257,10 +369,10 @@ export default function FilterSheet({
               activeOpacity={0.85}
               onPress={onClose}
             >
-              <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
+              <Text style={[styles.cancelText, { color: colors.text }]}>Batal</Text>
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
-              <AuthActionButton label="Apply" onPress={apply} variant="dark" />
+              <AuthActionButton label="Terapkan" onPress={apply} variant="dark" />
             </View>
           </View>
         </View>
@@ -278,11 +390,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheet: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    gap: 8,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    gap: 6,
     borderWidth: 1,
   },
   handle: {
@@ -290,7 +402,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   headerRow: {
     flexDirection: 'row',
@@ -298,18 +410,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
-    letterSpacing: -0.6,
+    letterSpacing: -0.4,
   },
   resetText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
   },
   sectionLabel: {
-    marginTop: 18,
-    marginBottom: 10,
-    fontSize: 13,
+    marginTop: 14,
+    marginBottom: 8,
+    fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
@@ -317,52 +429,52 @@ const styles = StyleSheet.create({
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
     borderWidth: 1,
   },
   chipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
-  priceRow: {
+  twoColRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
-  priceInputWrap: {
+  inputWrap: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 52,
-    borderRadius: 16,
-    paddingHorizontal: 14,
+    height: 44,
+    borderRadius: 12,
+    paddingHorizontal: 12,
     borderWidth: 1,
   },
-  priceInput: {
+  input: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
   },
   footerRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 18,
+    gap: 10,
+    marginTop: 14,
   },
   cancelButton: {
-    height: 58,
-    minWidth: 110,
-    paddingHorizontal: 24,
-    borderRadius: 24,
+    height: 50,
+    minWidth: 96,
+    paddingHorizontal: 20,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
 });

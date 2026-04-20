@@ -2,7 +2,6 @@ import React from 'react';
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -23,11 +22,6 @@ export default function WelcomeScreen() {
     router.replace('/(auth)/login');
   };
 
-  const continueAsGuest = async () => {
-    await setOnboardingSeen(true);
-    router.replace('/(tabs)/marketplace');
-  };
-
   return (
     <View style={styles.screen}>
       <StatusBar style="light" />
@@ -40,7 +34,7 @@ export default function WelcomeScreen() {
           contentPosition="top"
         />
         <LinearGradient
-          colors={['transparent', 'rgba(36,107,253,0.32)', 'rgba(21,87,229,0.96)']}
+          colors={['transparent', 'rgba(37,99,235,0.36)', 'rgba(30,64,175,0.96)']}
           style={styles.heroOverlay}
         />
       </View>
@@ -61,10 +55,6 @@ export default function WelcomeScreen() {
           onPress={navigateToAuth}
           variant="dark"
         />
-
-        <TouchableOpacity style={styles.guestButton} onPress={continueAsGuest}>
-          <Text style={styles.guestButtonText}>Jelajahi marketplace dulu</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -118,15 +108,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
     color: 'rgba(255,255,255,0.74)',
-  },
-  guestButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-  },
-  guestButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.72)',
   },
 });

@@ -15,14 +15,15 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FilterSheet, {
+  DEFAULT_FILTERS,
   type MarketplaceFilters,
 } from '@/components/marketplace/FilterSheet';
 import ListingCard from '@/components/marketplace/ListingCard';
 import SearchBar from '@/components/marketplace/SearchBar';
 import EmptyState from '@/components/ui/EmptyState';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import Colors from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { fetchBrands } from '@/lib/api/brandService';
 import {
   fetchFeaturedListings,
@@ -35,18 +36,13 @@ export default function MarketplaceScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { colors } = useTheme();
   const { user, isLoggedIn } = useAuth();
 
   const [brands, setBrands] = useState<Brand[]>([]);
   const [featured, setFeatured] = useState<Listing[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
-  const [filters, setFilters] = useState<MarketplaceFilters>({
-    brandId: null,
-    condition: 'all',
-    minPrice: '',
-    maxPrice: '',
-    sortBy: 'newest',
-  });
+  const [filters, setFilters] = useState<MarketplaceFilters>(DEFAULT_FILTERS);
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,9 +67,32 @@ export default function MarketplaceScreen() {
     if (isLoggedIn && user?.fullName) {
       return user.fullName;
     }
-
-    return 'Mediator Guest';
+    return 'Mediator';
   }, [isLoggedIn, user?.fullName]);
+
+  const buildListingParams = useCallback(
+    (f: MarketplaceFilters) => {
+      const minPrice = f.minPrice ? Number(f.minPrice) : undefined;
+      const maxPrice = f.maxPrice ? Number(f.maxPrice) : undefined;
+      const yearMin = f.yearMin ? Number(f.yearMin) : undefined;
+      const yearMax = f.yearMax ? Number(f.yearMax) : undefined;
+
+      return {
+        brandId: f.brandId || undefined,
+        condition: f.condition === 'all' ? undefined : f.condition,
+        minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
+        maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
+        yearMin: Number.isFinite(yearMin) ? yearMin : undefined,
+        yearMax: Number.isFinite(yearMax) ? yearMax : undefined,
+        transmission: f.transmission === 'all' ? undefined : f.transmission,
+        fuelType: f.fuelType === 'all' ? undefined : f.fuelType,
+        locationCity: f.locationCity ? f.locationCity : undefined,
+        periode: f.periode === 'all' ? undefined : f.periode,
+        sortBy: f.sortBy,
+      };
+    },
+    [],
+  );
 
   const loadListings = useCallback(
     async (pageNum: number, append = false) => {
@@ -81,17 +100,10 @@ export default function MarketplaceScreen() {
         if (!append) setLoading(true);
         else setLoadingMore(true);
 
-        const minPrice = filters.minPrice ? Number(filters.minPrice) : undefined;
-        const maxPrice = filters.maxPrice ? Number(filters.maxPrice) : undefined;
-
         const res = await fetchListings({
           page: pageNum,
           perPage: 8,
-          brandId: filters.brandId || undefined,
-          condition: filters.condition === 'all' ? undefined : filters.condition,
-          minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
-          maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
-          sortBy: filters.sortBy,
+          ...buildListingParams(filters),
         });
 
         const nextItems = res.data ?? [];
@@ -107,14 +119,14 @@ export default function MarketplaceScreen() {
         setLoadingMore(false);
       }
     },
-    [filters],
+    [buildListingParams, filters],
   );
 
   const loadHome = useCallback(async () => {
     try {
       setLoading(true);
       const [brandsRes, featuredRes] = await Promise.allSettled([
-        fetchBrands(),
+        fetchBrands({ page: 1, perPage: 100 }),
         fetchFeaturedListings(4),
       ]);
 
@@ -137,7 +149,6 @@ export default function MarketplaceScreen() {
       filterReadyRef.current = true;
       return;
     }
-
     setPage(1);
     loadListings(1);
   }, [filters, loadListings]);
@@ -159,29 +170,41 @@ export default function MarketplaceScreen() {
   }, [loadListings, loading, loadingMore, page, pagination]);
 
   const featuredItems = featured.length > 0 ? featured : listings.slice(0, 3);
-  const chipBrands = brands.slice(0, 5);
+  const brandGrid = brands.slice(0, 8);
+  const chipBrands = brands.slice(0, 6);
+
+  const bannerWidth = width - 32;
 
   const renderHeader = () => (
     <View>
-      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.topBar, { paddingTop: insets.top + 6 }]}>
         <View style={styles.profileRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{greetingName.charAt(0).toUpperCase()}</Text>
+          <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+            <Text style={[styles.avatarText, { color: colors.white }]}>
+              {greetingName.charAt(0).toUpperCase()}
+            </Text>
           </View>
-          <View>
-            <Text style={styles.greeting}>Good Morning</Text>
-            <Text style={styles.greetingName} numberOfLines={1}>
+          <View style={{ flexShrink: 1 }}>
+            <Text style={[styles.greeting, { color: colors.textTertiary }]}>Halo</Text>
+            <Text
+              style={[styles.greetingName, { color: colors.text }]}
+              numberOfLines={1}
+            >
               {greetingName}
             </Text>
           </View>
         </View>
 
         <View style={styles.topActions}>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="notifications-outline" size={20} color={Colors.text} />
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}
+          >
+            <Ionicons name="notifications-outline" size={18} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
-            <Ionicons name="heart-outline" size={20} color={Colors.text} />
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}
+          >
+            <Ionicons name="heart-outline" size={18} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -193,12 +216,78 @@ export default function MarketplaceScreen() {
         />
       </View>
 
+      {brandGrid.length > 0 ? (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Merek</Text>
+            {brands.length > brandGrid.length ? (
+              <TouchableOpacity onPress={() => setFilterSheetVisible(true)}>
+                <Text style={[styles.sectionLink, { color: colors.primary }]}>
+                  Lihat Semua
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          <View style={styles.brandGrid}>
+            {brandGrid.map((brand) => {
+              const isActive = selectedBrandId === brand.id;
+              const logoUri = resolveImageUrl(brand.logo);
+
+              return (
+                <TouchableOpacity
+                  key={brand.id}
+                  activeOpacity={0.86}
+                  style={styles.brandItem}
+                  onPress={() =>
+                    setSelectedBrandId((prev) => (prev === brand.id ? null : brand.id))
+                  }
+                >
+                  <View
+                    style={[
+                      styles.brandBubble,
+                      { backgroundColor: colors.backgroundSecondary, borderColor: 'transparent' },
+                      isActive && {
+                        backgroundColor: colors.primarySoft,
+                        borderColor: colors.primary,
+                      },
+                    ]}
+                  >
+                    {logoUri ? (
+                      <Image
+                        source={{ uri: logoUri }}
+                        style={styles.brandLogo}
+                        contentFit="contain"
+                      />
+                    ) : (
+                      <Text style={[styles.brandInitial, { color: colors.text }]}>
+                        {brand.name.charAt(0)}
+                      </Text>
+                    )}
+                  </View>
+                  <Text
+                    style={[styles.brandLabel, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {brand.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
       {featuredItems.length > 0 ? (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Special Offers</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Penawaran Spesial
+            </Text>
             <TouchableOpacity onPress={() => router.push('/search')}>
-              <Text style={styles.sectionLink}>See All</Text>
+              <Text style={[styles.sectionLink, { color: colors.primary }]}>
+                Lihat Semua
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -208,7 +297,7 @@ export default function MarketplaceScreen() {
             showsHorizontalScrollIndicator={false}
             decelerationRate="fast"
             onMomentumScrollEnd={(event) => {
-              const cardWidth = width - 40;
+              const cardWidth = bannerWidth;
               const index = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
               setActiveBanner(index);
             }}
@@ -219,16 +308,32 @@ export default function MarketplaceScreen() {
                 <TouchableOpacity
                   key={item.id}
                   activeOpacity={0.86}
-                  style={[styles.bannerCard, { width: width - 40 }]}
+                  style={[
+                    styles.bannerCard,
+                    { width: bannerWidth, backgroundColor: colors.primary },
+                  ]}
                   onPress={() => router.push(`/listing/${item.id}`)}
                 >
                   <View style={styles.bannerCopy}>
-                    <Text style={styles.bannerEyebrow}>Pilihan Mediator</Text>
-                    <Text style={styles.bannerTitle}>{getListingTitle(item)}</Text>
-                    <Text style={styles.bannerSubtitle}>Siap dihubungi hari ini</Text>
+                    <Text style={[styles.bannerEyebrow, { color: 'rgba(255,255,255,0.72)' }]}>
+                      Pilihan Mediator
+                    </Text>
+                    <Text
+                      style={[styles.bannerTitle, { color: colors.white }]}
+                      numberOfLines={2}
+                    >
+                      {getListingTitle(item)}
+                    </Text>
+                    <Text style={[styles.bannerSubtitle, { color: 'rgba(255,255,255,0.72)' }]}>
+                      Siap dihubungi hari ini
+                    </Text>
                   </View>
                   <Image
-                    source={imageUri ? { uri: imageUri } : require('@/assets/images/onboarding-hero.png')}
+                    source={
+                      imageUri
+                        ? { uri: imageUri }
+                        : require('@/assets/images/onboarding-hero.png')
+                    }
                     style={styles.bannerImage}
                     contentFit="contain"
                   />
@@ -241,59 +346,25 @@ export default function MarketplaceScreen() {
             {featuredItems.map((_, index) => (
               <View
                 key={index}
-                style={[styles.bannerDot, index === activeBanner && styles.bannerDotActive]}
+                style={[
+                  styles.bannerDot,
+                  { backgroundColor: colors.border },
+                  index === activeBanner && {
+                    backgroundColor: colors.primary,
+                    width: 18,
+                  },
+                ]}
               />
             ))}
           </View>
         </View>
       ) : null}
 
-      {brands.length > 0 ? (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Merek Populer</Text>
-          </View>
-
-          <View style={styles.brandGrid}>
-            {brands.slice(0, 8).map((brand) => {
-              const isActive = selectedBrandId === brand.id;
-              const logoUri = resolveImageUrl(brand.logo);
-
-              return (
-                <TouchableOpacity
-                  key={brand.id}
-                  activeOpacity={0.86}
-                  style={styles.brandItem}
-                  onPress={() => setSelectedBrandId((prev) => (prev === brand.id ? null : brand.id))}
-                >
-                  <View style={[styles.brandBubble, isActive && styles.brandBubbleActive]}>
-                    {logoUri ? (
-                      <Image
-                        source={{ uri: logoUri }}
-                        style={styles.brandLogo}
-                        contentFit="contain"
-                      />
-                    ) : (
-                      <Text style={[styles.brandInitial, isActive && styles.brandInitialActive]}>
-                        {brand.name.charAt(0)}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={styles.brandLabel} numberOfLines={1}>
-                    {brand.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      ) : null}
-
       <View style={[styles.section, styles.listSection]}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Top Deals</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Rekomendasi</Text>
           <TouchableOpacity onPress={() => router.push('/search')}>
-            <Text style={styles.sectionLink}>See All</Text>
+            <Text style={[styles.sectionLink, { color: colors.primary }]}>Lihat Semua</Text>
           </TouchableOpacity>
         </View>
 
@@ -304,11 +375,22 @@ export default function MarketplaceScreen() {
         >
           <TouchableOpacity
             activeOpacity={0.86}
-            style={[styles.filterChip, !selectedBrandId && styles.filterChipActive]}
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: !selectedBrandId ? colors.primary : colors.background,
+                borderColor: !selectedBrandId ? colors.primary : colors.border,
+              },
+            ]}
             onPress={() => setSelectedBrandId(null)}
           >
-            <Text style={[styles.filterChipText, !selectedBrandId && styles.filterChipTextActive]}>
-              All
+            <Text
+              style={[
+                styles.filterChipText,
+                { color: !selectedBrandId ? colors.white : colors.textSecondary },
+              ]}
+            >
+              Semua
             </Text>
           </TouchableOpacity>
 
@@ -318,10 +400,21 @@ export default function MarketplaceScreen() {
               <TouchableOpacity
                 key={brand.id}
                 activeOpacity={0.86}
-                style={[styles.filterChip, active && styles.filterChipActive]}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: active ? colors.primary : colors.background,
+                    borderColor: active ? colors.primary : colors.border,
+                  },
+                ]}
                 onPress={() => setSelectedBrandId(brand.id)}
               >
-                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    { color: active ? colors.white : colors.textSecondary },
+                  ]}
+                >
                   {brand.name}
                 </Text>
               </TouchableOpacity>
@@ -337,7 +430,7 @@ export default function MarketplaceScreen() {
   }
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <FlatList
         data={listings}
         keyExtractor={(item) => item.id}
@@ -355,7 +448,7 @@ export default function MarketplaceScreen() {
         ListFooterComponent={
           loadingMore ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator size="small" color={Colors.text} />
+              <ActivityIndicator size="small" color={colors.primary} />
             </View>
           ) : null
         }
@@ -367,8 +460,8 @@ export default function MarketplaceScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[Colors.text]}
-            tintColor={Colors.text}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
           />
         }
       />
@@ -387,208 +480,173 @@ export default function MarketplaceScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flex: 1,
   },
   avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: Colors.primary,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '900',
-    color: Colors.white,
   },
   greeting: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: Colors.textTertiary,
   },
   greetingName: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '800',
     maxWidth: 190,
   },
   topActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: Colors.backgroundSecondary,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchWrap: {
-    paddingHorizontal: 20,
-    marginTop: 20,
+    paddingHorizontal: 16,
+    marginTop: 12,
   },
   section: {
-    marginTop: 28,
+    marginTop: 18,
   },
   listSection: {
-    marginBottom: 16,
+    marginBottom: 10,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: Colors.text,
-    letterSpacing: -0.8,
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   sectionLink: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    color: Colors.textSecondary,
   },
   bannerCard: {
-    marginHorizontal: 20,
-    borderRadius: 28,
-    backgroundColor: Colors.primary,
-    padding: 22,
+    marginHorizontal: 16,
+    borderRadius: 18,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
   },
   bannerCopy: {
     flex: 1,
-    paddingRight: 16,
+    paddingRight: 12,
   },
   bannerEyebrow: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.72)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   bannerTitle: {
-    marginTop: 8,
-    fontSize: 28,
+    marginTop: 4,
+    fontSize: 17,
     fontWeight: '900',
-    color: Colors.white,
-    letterSpacing: -1,
+    letterSpacing: -0.3,
+    lineHeight: 22,
   },
   bannerSubtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 22,
-    color: 'rgba(255,255,255,0.72)',
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 16,
   },
   bannerImage: {
-    width: 136,
-    height: 108,
+    width: 92,
+    height: 70,
   },
   bannerDots: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 14,
+    gap: 5,
+    marginTop: 8,
   },
   bannerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.border,
-  },
-  bannerDotActive: {
-    width: 24,
-    backgroundColor: Colors.text,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   brandGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 18,
-    paddingHorizontal: 20,
+    rowGap: 12,
+    paddingHorizontal: 16,
   },
   brandItem: {
     width: '22%',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   brandBubble: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: Colors.backgroundSecondary,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: 'transparent',
-  },
-  brandBubbleActive: {
-    borderColor: Colors.text,
-    backgroundColor: Colors.primarySoft,
   },
   brandLogo: {
-    width: 34,
-    height: 34,
+    width: 30,
+    height: 30,
   },
   brandInitial: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '900',
-    color: Colors.text,
-  },
-  brandInitialActive: {
-    color: Colors.text,
   },
   brandLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: Colors.textSecondary,
   },
   chipsRow: {
-    paddingHorizontal: 20,
-    gap: 10,
+    paddingHorizontal: 16,
+    gap: 8,
   },
   filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: Colors.white,
     borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
   },
   filterChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
-    color: Colors.textSecondary,
-  },
-  filterChipTextActive: {
-    color: Colors.white,
   },
   row: {
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   footerLoader: {
-    paddingVertical: 20,
+    paddingVertical: 16,
     alignItems: 'center',
   },
 });

@@ -1,8 +1,11 @@
-import { Tabs } from 'expo-router';
+import React from 'react';
+import { Redirect, Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Shadows } from '@/constants/Colors';
+import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -24,6 +27,15 @@ function TabIcon({ name, color, focused, indicatorColor }: TabIconProps) {
 
 export default function TabLayout() {
   const { colors } = useTheme();
+  const { isLoggedIn, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingSpinner fullScreen message="Memuat Mediator..." />;
+  }
+
+  if (!isLoggedIn) {
+    return <Redirect href="/(auth)/login" />;
+  }
 
   return (
     <Tabs

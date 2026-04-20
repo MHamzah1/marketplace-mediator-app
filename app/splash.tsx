@@ -1,24 +1,48 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import { getOnboardingSeen } from '@/lib/auth/onboarding';
 
 export default function SplashScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { isLoggedIn, loading } = useAuth();
+  const routedRef = useRef(false);
 
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      const seen = await getOnboardingSeen().catch(() => false);
-      router.replace(seen ? '/(tabs)/marketplace' : '/(auth)/welcome');
-    }, 1600);
+    if (loading || routedRef.current) return;
 
-    return () => clearTimeout(timer);
-  }, [router]);
+    let cancelled = false;
+    const start = Date.now();
+
+    (async () => {
+      const seen = await getOnboardingSeen().catch(() => false);
+      const elapsed = Date.now() - start;
+      const minDelay = 1200;
+      if (elapsed < minDelay) {
+        await new Promise((r) => setTimeout(r, minDelay - elapsed));
+      }
+      if (cancelled || routedRef.current) return;
+      routedRef.current = true;
+
+      if (isLoggedIn) {
+        router.replace('/(tabs)/marketplace');
+      } else if (!seen) {
+        router.replace('/(auth)/welcome');
+      } else {
+        router.replace('/(auth)/login');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, loading, router]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.gradientMiddle }]}>
@@ -35,13 +59,13 @@ export default function SplashScreen() {
         </View>
 
         <Text style={[styles.brand, { color: colors.white }]}>Mediator</Text>
-        <Text style={[styles.tagline, { color: 'rgba(255,255,255,0.62)' }]}>
+        <Text style={[styles.tagline, { color: 'rgba(255,255,255,0.72)' }]}>
           Marketplace mobil terpercaya
         </Text>
       </View>
 
       <View style={styles.footer}>
-        <Text style={[styles.footerText, { color: 'rgba(255,255,255,0.48)' }]}>
+        <Text style={[styles.footerText, { color: 'rgba(255,255,255,0.54)' }]}>
           Powered by Mediator
         </Text>
       </View>
