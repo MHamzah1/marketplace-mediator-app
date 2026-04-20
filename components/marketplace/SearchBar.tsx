@@ -37,29 +37,35 @@ export default function SearchBar({
 
   if (!editable) {
     return (
-      <TouchableOpacity
-        onPress={handlePress}
-        activeOpacity={0.8}
-        style={styles.container}
-      >
-        <View style={styles.iconContainer}>
-          <Ionicons name="search" size={18} color={Colors.textTertiary} />
-        </View>
-        <View style={styles.textContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder={placeholder}
-            placeholderTextColor={Colors.textTertiary}
-            editable={false}
-            pointerEvents="none"
-          />
-        </View>
-        {showFilterButton ? (
-          <View style={styles.trailingButton}>
-            <Ionicons name="options-outline" size={18} color={Colors.text} />
+      <View style={styles.container}>
+        <TouchableOpacity
+          onPress={handlePress}
+          activeOpacity={0.8}
+          style={styles.searchRow}
+        >
+          <View style={styles.iconContainer}>
+            <Ionicons name="search" size={18} color={Colors.textTertiary} />
           </View>
+          <View style={styles.textContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder={placeholder}
+              placeholderTextColor={Colors.textTertiary}
+              editable={false}
+              pointerEvents="none"
+            />
+          </View>
+        </TouchableOpacity>
+        {showFilterButton ? (
+          <TouchableOpacity
+            activeOpacity={0.82}
+            style={styles.trailingButton}
+            onPress={onFilterPress ?? handlePress}
+          >
+            <Ionicons name="options-outline" size={18} color={Colors.text} />
+          </TouchableOpacity>
         ) : null}
-      </TouchableOpacity>
+      </View>
     );
   }
 
@@ -101,6 +107,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderLight,
     ...Shadows.small,
+  },
+  searchRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   iconContainer: {
     width: 44,

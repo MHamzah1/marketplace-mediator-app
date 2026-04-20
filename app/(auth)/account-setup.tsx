@@ -144,10 +144,9 @@ export default function AccountSetupScreen() {
             <AuthActionButton
               label="Continue"
               onPress={() =>
-                router.replace({
-                  pathname: '/(auth)/login-password',
+                router.push({
+                  pathname: '/(auth)/create-pin',
                   params: {
-                    email,
                     redirectTo: params.redirectTo,
                     reason: params.reason,
                   },

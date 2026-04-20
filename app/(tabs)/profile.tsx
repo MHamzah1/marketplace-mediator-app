@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Colors, { Shadows } from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { requireAuth } from '@/lib/auth/requireAuth';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -29,6 +31,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, isLoggedIn, logout } = useAuth();
+  const { isDark, toggle: toggleTheme } = useTheme();
 
   const handleLogout = () => {
     Alert.alert('Keluar', 'Apakah Anda yakin ingin keluar?', [
@@ -223,6 +226,34 @@ export default function ProfileScreen() {
               </View>
             </View>
           ))}
+
+          {/* Preferences */}
+          <View style={styles.menuSection}>
+            <Text style={styles.menuSectionTitle}>Preferensi</Text>
+            <View style={[styles.menuCard, Shadows.small]}>
+              <View style={styles.menuItem}>
+                <View style={[styles.menuIconBg, { backgroundColor: Colors.primary + '15' }]}>
+                  <Ionicons
+                    name={isDark ? 'moon' : 'sunny-outline'}
+                    size={20}
+                    color={Colors.primary}
+                  />
+                </View>
+                <View style={styles.menuTextContainer}>
+                  <Text style={styles.menuLabel}>Dark Mode</Text>
+                  <Text style={styles.menuSubtitle}>
+                    {isDark ? 'Tema gelap aktif' : 'Tema terang aktif'}
+                  </Text>
+                </View>
+                <Switch
+                  value={isDark}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: Colors.border, true: Colors.primary }}
+                  thumbColor={Colors.white}
+                />
+              </View>
+            </View>
+          </View>
 
           {/* Logout Button */}
           {isLoggedIn && (

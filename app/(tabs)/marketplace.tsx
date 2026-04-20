@@ -14,6 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import FilterSheet, {
+  type MarketplaceFilters,
+} from '@/components/marketplace/FilterSheet';
 import ListingCard from '@/components/marketplace/ListingCard';
 import SearchBar from '@/components/marketplace/SearchBar';
 import EmptyState from '@/components/ui/EmptyState';
@@ -37,7 +40,14 @@ export default function MarketplaceScreen() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [featured, setFeatured] = useState<Listing[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
-  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<MarketplaceFilters>({
+    brandId: null,
+    condition: 'all',
+    minPrice: '',
+    maxPrice: '',
+    sortBy: 'newest',
+  });
+  const [filterSheetVisible, setFilterSheetVisible] = useState(false);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,6 +55,17 @@ export default function MarketplaceScreen() {
   const [page, setPage] = useState(1);
   const [activeBanner, setActiveBanner] = useState(0);
   const filterReadyRef = useRef(false);
+
+  const selectedBrandId = filters.brandId;
+  const setSelectedBrandId = useCallback(
+    (value: string | null | ((prev: string | null) => string | null)) => {
+      setFilters((prev) => {
+        const next = typeof value === 'function' ? value(prev.brandId) : value;
+        return { ...prev, brandId: next };
+      });
+    },
+    [],
+  );
 
   const greetingName = useMemo(() => {
     if (isLoggedIn && user?.fullName) {
@@ -54,31 +75,40 @@ export default function MarketplaceScreen() {
     return 'Mediator Guest';
   }, [isLoggedIn, user?.fullName]);
 
-  const loadListings = useCallback(async (pageNum: number, append = false) => {
-    try {
-      if (!append) setLoading(true);
-      else setLoadingMore(true);
+  const loadListings = useCallback(
+    async (pageNum: number, append = false) => {
+      try {
+        if (!append) setLoading(true);
+        else setLoadingMore(true);
 
-      const res = await fetchListings({
-        page: pageNum,
-        perPage: 8,
-        brandId: selectedBrandId || undefined,
-        sortBy: 'newest',
-      });
+        const minPrice = filters.minPrice ? Number(filters.minPrice) : undefined;
+        const maxPrice = filters.maxPrice ? Number(filters.maxPrice) : undefined;
 
-      const nextItems = res.data ?? [];
-      setListings((prev) => (append ? [...prev, ...nextItems] : nextItems));
-      setPagination(res.pagination ?? null);
-    } catch {
-      if (!append) {
-        setListings([]);
-        setPagination(null);
+        const res = await fetchListings({
+          page: pageNum,
+          perPage: 8,
+          brandId: filters.brandId || undefined,
+          condition: filters.condition === 'all' ? undefined : filters.condition,
+          minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
+          maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
+          sortBy: filters.sortBy,
+        });
+
+        const nextItems = res.data ?? [];
+        setListings((prev) => (append ? [...prev, ...nextItems] : nextItems));
+        setPagination(res.pagination ?? null);
+      } catch {
+        if (!append) {
+          setListings([]);
+          setPagination(null);
+        }
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [selectedBrandId]);
+    },
+    [filters],
+  );
 
   const loadHome = useCallback(async () => {
     try {
@@ -110,7 +140,7 @@ export default function MarketplaceScreen() {
 
     setPage(1);
     loadListings(1);
-  }, [selectedBrandId, loadListings]);
+  }, [filters, loadListings]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -157,7 +187,10 @@ export default function MarketplaceScreen() {
       </View>
 
       <View style={styles.searchWrap}>
-        <SearchBar placeholder="Cari mobil, merek, atau model..." />
+        <SearchBar
+          placeholder="Cari mobil, merek, atau model..."
+          onFilterPress={() => setFilterSheetVisible(true)}
+        />
       </View>
 
       {featuredItems.length > 0 ? (
@@ -338,6 +371,14 @@ export default function MarketplaceScreen() {
             tintColor={Colors.text}
           />
         }
+      />
+
+      <FilterSheet
+        visible={filterSheetVisible}
+        onClose={() => setFilterSheetVisible(false)}
+        onApply={(next) => setFilters(next)}
+        brands={brands}
+        initial={filters}
       />
     </View>
   );
