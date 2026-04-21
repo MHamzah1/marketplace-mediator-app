@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
+  Modal,
   ScrollView,
   Share,
   StyleSheet,
@@ -47,8 +48,28 @@ export default function ListingDetailScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [contacting, setContacting] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [fullscreenVisible, setFullscreenVisible] = useState(false);
+  const [fullscreenIndex, setFullscreenIndex] = useState(0);
 
   const galleryRef = useRef<ScrollView>(null);
+  const fullscreenRef = useRef<ScrollView>(null);
+  const lastTapRef = useRef<number>(0);
+
+  const openFullscreen = (index: number) => {
+    setFullscreenIndex(index);
+    setFullscreenVisible(true);
+    setTimeout(() => {
+      fullscreenRef.current?.scrollTo({ x: index * width, animated: false });
+    }, 50);
+  };
+
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 320) {
+      openFullscreen(activeIndex);
+    }
+    lastTapRef.current = now;
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -191,20 +212,32 @@ export default function ListingDetailScreen() {
           >
             {gallery.length > 0 ? (
               gallery.map((uri, i) => (
-                <Image
+                <TouchableOpacity
                   key={i}
-                  source={{ uri }}
+                  activeOpacity={1}
+                  onPress={handleDoubleTap}
                   style={{ width, height: imageHeight }}
-                  contentFit="cover"
-                  transition={200}
-                />
+                >
+                  <Image
+                    source={{ uri }}
+                    style={{ width, height: imageHeight }}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                </TouchableOpacity>
               ))
             ) : (
-              <Image
-                source={require('@/assets/images/onboarding-hero.png')}
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={handleDoubleTap}
                 style={{ width, height: imageHeight }}
-                contentFit="cover"
-              />
+              >
+                <Image
+                  source={require('@/assets/images/onboarding-hero.png')}
+                  style={{ width, height: imageHeight }}
+                  contentFit="cover"
+                />
+              </TouchableOpacity>
             )}
           </ScrollView>
 
@@ -363,6 +396,75 @@ export default function ListingDetailScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Fullscreen image viewer */}
+      <Modal
+        visible={fullscreenVisible}
+        transparent={false}
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setFullscreenVisible(false)}
+      >
+        <View style={styles.fsScreen}>
+          <StatusBar style="light" />
+
+          {/* Header */}
+          <View style={[styles.fsHeader, { paddingTop: insets.top + 8 }]}>
+            <TouchableOpacity
+              style={styles.fsCloseButton}
+              onPress={() => setFullscreenVisible(false)}
+            >
+              <Ionicons name="close" size={22} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.fsCounter}>
+              {fullscreenIndex + 1} dari {gallery.length}
+            </Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          {/* Swipeable images */}
+          <ScrollView
+            ref={fullscreenRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            style={{ flex: 1 }}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / width);
+              setFullscreenIndex(index);
+            }}
+          >
+            {gallery.map((uri, i) => (
+              <View key={i} style={{ width, flex: 1, justifyContent: 'center' }}>
+                <Image
+                  source={{ uri }}
+                  style={{ width, height: width }}
+                  contentFit="contain"
+                  transition={150}
+                />
+              </View>
+            ))}
+          </ScrollView>
+
+          {/* Dot indicators */}
+          {gallery.length > 1 ? (
+            <View style={[styles.fsDots, { paddingBottom: insets.bottom + 24 }]}>
+              {gallery.map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.fsDot,
+                    i === fullscreenIndex
+                      ? styles.fsDotActive
+                      : { backgroundColor: 'rgba(255,255,255,0.3)' },
+                  ]}
+                />
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -635,5 +737,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: Colors.white,
+  },
+  fsScreen: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'space-between',
+  },
+  fsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    zIndex: 10,
+  },
+  fsCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fsCounter: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  fsDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  fsDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  fsDotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#fff',
   },
 });
