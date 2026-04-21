@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Linking,
@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import EmptyState from '@/components/ui/EmptyState';
-import Colors, { Shadows } from '@/constants/Colors';
+import Colors from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
 import { requireAuth } from '@/lib/auth/requireAuth';
 import {
@@ -32,6 +32,8 @@ import {
 } from '@/lib/utils';
 import type { Listing } from '@/types';
 
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
 export default function ListingDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -42,13 +44,14 @@ export default function ListingDetailScreen() {
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [contacting, setContacting] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
 
+  const galleryRef = useRef<ScrollView>(null);
+
   useEffect(() => {
     if (!id) return;
-
     setLoading(true);
     fetchListingDetail(id)
       .then((response) => {
@@ -73,8 +76,6 @@ export default function ListingDetailScreen() {
       .filter(Boolean) as string[];
   }, [listing]);
 
-  const selectedImage = gallery[selectedImageIndex];
-
   const handleShare = async () => {
     if (!listing) return;
     await Share.share({
@@ -85,7 +86,6 @@ export default function ListingDetailScreen() {
 
   const handleWhatsApp = async () => {
     if (!listing) return;
-
     if (
       !requireAuth(router, isLoggedIn, {
         redirectTo: `/listing/${listing.id}`,
@@ -95,7 +95,6 @@ export default function ListingDetailScreen() {
     ) {
       return;
     }
-
     try {
       setContacting(true);
       const response = await getWhatsAppLink(listing.id);
@@ -105,6 +104,11 @@ export default function ListingDetailScreen() {
     } finally {
       setContacting(false);
     }
+  };
+
+  const scrollToImage = (index: number) => {
+    galleryRef.current?.scrollTo({ x: index * width, animated: true });
+    setActiveIndex(index);
   };
 
   if (loading) {
@@ -130,6 +134,17 @@ export default function ListingDetailScreen() {
     );
   }
 
+  const imageHeight = width * 0.72;
+
+  const specs: { icon: IoniconsName; label: string; value: string }[] = [
+    { icon: 'speedometer-outline', label: 'Kilometer', value: formatMileage(listing.mileage) },
+    { icon: 'flash-outline', label: 'Bahan Bakar', value: listing.fuelType },
+    { icon: 'cog-outline', label: 'Transmisi', value: listing.transmission },
+    { icon: 'color-palette-outline', label: 'Warna', value: listing.color || '-' },
+    { icon: 'eye-outline', label: 'Dilihat', value: `${listing.viewCount} kali` },
+    { icon: 'calendar-outline', label: 'Tahun', value: `${listing.year}` },
+  ];
+
   return (
     <View style={styles.screen}>
       <StatusBar style="dark" />
@@ -138,7 +153,6 @@ export default function ListingDetailScreen() {
         <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={22} color={Colors.text} />
         </TouchableOpacity>
-
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.headerButton} onPress={handleShare}>
             <Ionicons name="share-outline" size={20} color={Colors.text} />
@@ -158,36 +172,86 @@ export default function ListingDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 112 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 108 }}
       >
-        <View style={[styles.heroWrap, { height: width * 0.82 }]}>
-          <Image
-            source={selectedImage ? { uri: selectedImage } : require('@/assets/images/onboarding-hero.png')}
-            style={styles.heroImage}
-            contentFit="cover"
-            transition={250}
-          />
-          <View style={styles.viewerBadge}>
-            <Text style={styles.viewerBadgeText}>360°</Text>
-          </View>
+        {/* Swipeable image gallery */}
+        <View style={{ height: imageHeight, backgroundColor: Colors.backgroundSecondary }}>
+          <ScrollView
+            ref={galleryRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            scrollEventThrottle={16}
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(e.nativeEvent.contentOffset.x / width);
+              setActiveIndex(index);
+            }}
+            style={{ flex: 1 }}
+          >
+            {gallery.length > 0 ? (
+              gallery.map((uri, i) => (
+                <Image
+                  key={i}
+                  source={{ uri }}
+                  style={{ width, height: imageHeight }}
+                  contentFit="cover"
+                  transition={200}
+                />
+              ))
+            ) : (
+              <Image
+                source={require('@/assets/images/onboarding-hero.png')}
+                style={{ width, height: imageHeight }}
+                contentFit="cover"
+              />
+            )}
+          </ScrollView>
+
+          {/* Dot indicators */}
+          {gallery.length > 1 ? (
+            <View style={styles.dotRow}>
+              {gallery.map((_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.dot,
+                    i === activeIndex
+                      ? styles.dotActive
+                      : { backgroundColor: 'rgba(255,255,255,0.45)' },
+                  ]}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {/* Image counter badge */}
+          {gallery.length > 1 ? (
+            <View style={styles.counterBadge}>
+              <Text style={styles.counterText}>
+                {activeIndex + 1}/{gallery.length}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
+        {/* Thumbnail strip */}
         {gallery.length > 1 ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.thumbnailRow}
           >
-            {gallery.map((image, index) => {
-              const active = selectedImageIndex === index;
+            {gallery.map((uri, i) => {
+              const active = activeIndex === i;
               return (
                 <TouchableOpacity
-                  key={image + index}
-                  activeOpacity={0.86}
-                  onPress={() => setSelectedImageIndex(index)}
+                  key={i}
+                  activeOpacity={0.82}
+                  onPress={() => scrollToImage(i)}
                   style={[styles.thumbnailFrame, active && styles.thumbnailFrameActive]}
                 >
-                  <Image source={{ uri: image }} style={styles.thumbnailImage} contentFit="cover" />
+                  <Image source={{ uri }} style={styles.thumbnailImage} contentFit="cover" />
                 </TouchableOpacity>
               );
             })}
@@ -195,6 +259,7 @@ export default function ListingDetailScreen() {
         ) : null}
 
         <View style={styles.body}>
+          {/* Meta pills */}
           <View style={styles.metaRow}>
             <View style={styles.metaPill}>
               <Text style={styles.metaPillText}>{listing.year}</Text>
@@ -210,47 +275,58 @@ export default function ListingDetailScreen() {
           </View>
 
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>
-            {listing.variant?.name || listing.carModel?.modelName}
-          </Text>
+          {listing.variant?.name || listing.carModel?.modelName ? (
+            <Text style={styles.subtitle}>
+              {listing.variant?.name || listing.carModel?.modelName}
+            </Text>
+          ) : null}
+
           <Text style={styles.price}>{formatRupiahFull(listing.price)}</Text>
 
           <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={16} color={Colors.textSecondary} />
+            <Ionicons name="location-outline" size={14} color={Colors.textSecondary} />
             <Text style={styles.locationText}>
               {listing.locationCity}
               {listing.locationProvince ? `, ${listing.locationProvince}` : ''}
             </Text>
           </View>
 
-          <View style={styles.specGrid}>
-            {[
-              { icon: 'speedometer-outline' as const, label: 'Kilometer', value: formatMileage(listing.mileage) },
-              { icon: 'flash-outline' as const, label: 'Bahan Bakar', value: listing.fuelType },
-              { icon: 'color-palette-outline' as const, label: 'Warna', value: listing.color || '-' },
-              { icon: 'eye-outline' as const, label: 'Dilihat', value: `${listing.viewCount}` },
-            ].map((spec) => (
-              <View key={spec.label} style={[styles.specCard, Shadows.small]}>
-                <View style={styles.specIcon}>
-                  <Ionicons name={spec.icon} size={18} color={Colors.text} />
-                </View>
-                <Text style={styles.specLabel}>{spec.label}</Text>
-                <Text style={styles.specValue}>{spec.value}</Text>
-              </View>
-            ))}
+          {/* Spec bars */}
+          <View style={styles.specSection}>
+            <Text style={styles.sectionTitle}>Spesifikasi</Text>
+            <View style={styles.specBar}>
+              {specs.map((spec, i) => (
+                <React.Fragment key={spec.label}>
+                  <View style={styles.specRow}>
+                    <View style={styles.specLeft}>
+                      <View style={styles.specIconWrap}>
+                        <Ionicons name={spec.icon} size={14} color={Colors.primary} />
+                      </View>
+                      <Text style={styles.specLabel}>{spec.label}</Text>
+                    </View>
+                    <Text style={styles.specValue}>{spec.value}</Text>
+                  </View>
+                  {i < specs.length - 1 ? (
+                    <View style={styles.specDivider} />
+                  ) : null}
+                </React.Fragment>
+              ))}
+            </View>
           </View>
 
+          {/* Description */}
           <View style={styles.descriptionSection}>
-            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.sectionTitle}>Deskripsi</Text>
             <Text style={styles.descriptionText}>
               {listing.description || 'Penjual belum menambahkan deskripsi untuk mobil ini.'}
             </Text>
           </View>
 
+          {/* Seller */}
           {listing.seller ? (
             <TouchableOpacity
               activeOpacity={0.86}
-              style={[styles.sellerCard, Shadows.small]}
+              style={styles.sellerRow}
               onPress={() => router.push(`/seller/${listing.seller.id}`)}
             >
               <View style={styles.sellerAvatar}>
@@ -258,32 +334,30 @@ export default function ListingDetailScreen() {
                   {listing.seller.fullName?.charAt(0).toUpperCase() || 'M'}
                 </Text>
               </View>
-
               <View style={{ flex: 1 }}>
                 <Text style={styles.sellerName}>{listing.seller.fullName}</Text>
                 <Text style={styles.sellerSubtitle}>
-                  {listing.seller.location || 'Penjual Mediator'} • Verified Seller
+                  {listing.seller.location || 'Penjual Mediator'} · Verified Seller
                 </Text>
               </View>
-
-              <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+              <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
             </TouchableOpacity>
           ) : null}
         </View>
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+      {/* Bottom bar */}
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
         <View>
           <Text style={styles.bottomLabel}>Harga</Text>
           <Text style={styles.bottomPrice}>{formatRupiahFull(listing.price)}</Text>
         </View>
-
         <TouchableOpacity
           activeOpacity={0.86}
           onPress={handleWhatsApp}
-          style={[styles.whatsAppButton, Shadows.blue]}
+          style={styles.whatsAppButton}
         >
-          <Ionicons name="logo-whatsapp" size={18} color={Colors.white} />
+          <Ionicons name="logo-whatsapp" size={17} color={Colors.white} />
           <Text style={styles.whatsAppButtonText}>
             {contacting ? 'Memuat...' : 'WhatsApp'}
           </Text>
@@ -310,188 +384,215 @@ const styles = StyleSheet.create({
   },
   headerActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   headerButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 15,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.92)',
   },
-  heroWrap: {
-    backgroundColor: Colors.backgroundSecondary,
-  },
-  heroImage: {
-    width: '100%',
-    height: '100%',
-  },
-  viewerBadge: {
+  dotRow: {
     position: 'absolute',
-    bottom: 16,
-    left: 24,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
     justifyContent: 'center',
+    gap: 5,
   },
-  viewerBadgeText: {
-    fontSize: 13,
-    fontWeight: '900',
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  dotActive: {
+    width: 18,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.white,
+  },
+  counterBadge: {
+    position: 'absolute',
+    bottom: 12,
+    right: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  counterText: {
+    fontSize: 11,
+    fontWeight: '700',
     color: Colors.white,
   },
   thumbnailRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
   },
   thumbnailFrame: {
-    width: 78,
-    height: 58,
-    borderRadius: 16,
+    width: 64,
+    height: 48,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
     backgroundColor: Colors.backgroundSecondary,
   },
   thumbnailFrameActive: {
-    borderColor: Colors.text,
+    borderColor: Colors.primary,
   },
   thumbnailImage: {
     width: '100%',
     height: '100%',
   },
   body: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
   },
   metaRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
+    marginTop: 4,
   },
   metaPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 999,
     backgroundColor: Colors.backgroundSecondary,
   },
   metaPillText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
     color: Colors.textSecondary,
   },
   title: {
-    marginTop: 18,
-    fontSize: 34,
+    marginTop: 14,
+    fontSize: 24,
     fontWeight: '900',
     color: Colors.text,
-    letterSpacing: -1.2,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    marginTop: 6,
-    fontSize: 16,
+    marginTop: 3,
+    fontSize: 13,
     fontWeight: '600',
     color: Colors.textSecondary,
   },
   price: {
-    marginTop: 18,
-    fontSize: 30,
+    marginTop: 12,
+    fontSize: 22,
     fontWeight: '900',
     color: Colors.text,
-    letterSpacing: -0.8,
+    letterSpacing: -0.4,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
+    gap: 6,
+    marginTop: 6,
   },
   locationText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: Colors.textSecondary,
   },
-  specGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 12,
-    marginTop: 24,
+  specSection: {
+    marginTop: 20,
   },
-  specCard: {
-    width: '48%',
-    backgroundColor: Colors.card,
-    borderRadius: 22,
-    padding: 16,
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.text,
+    letterSpacing: -0.2,
+    marginBottom: 10,
   },
-  specIcon: {
-    width: 40,
-    height: 40,
+  specBar: {
     borderRadius: 14,
     backgroundColor: Colors.backgroundSecondary,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  specRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  specLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  specIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: Colors.primarySoftest,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
   specLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textTertiary,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
   specValue: {
-    marginTop: 4,
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '800',
     color: Colors.text,
   },
-  descriptionSection: {
-    marginTop: 26,
+  specDivider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginHorizontal: 14,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: Colors.text,
-    letterSpacing: -0.6,
-    marginBottom: 10,
+  descriptionSection: {
+    marginTop: 20,
   },
   descriptionText: {
-    fontSize: 15,
-    lineHeight: 24,
+    fontSize: 13,
+    lineHeight: 21,
     color: Colors.textSecondary,
   },
-  sellerCard: {
-    marginTop: 24,
+  sellerRow: {
+    marginTop: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    backgroundColor: Colors.card,
-    borderRadius: 24,
-    padding: 16,
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: Colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
   },
   sellerAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sellerAvatarText: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '900',
     color: Colors.white,
   },
   sellerName: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '800',
     color: Colors.text,
   },
   sellerSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
+    marginTop: 2,
+    fontSize: 11,
     fontWeight: '600',
     color: Colors.textSecondary,
   },
@@ -503,20 +604,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingHorizontal: 18,
+    paddingTop: 12,
     backgroundColor: Colors.background,
     borderTopWidth: 1,
     borderTopColor: Colors.borderLight,
   },
   bottomLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: Colors.textTertiary,
   },
   bottomPrice: {
-    marginTop: 2,
-    fontSize: 18,
+    marginTop: 1,
+    fontSize: 15,
     fontWeight: '900',
     color: Colors.text,
   },
@@ -524,14 +625,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    height: 54,
-    paddingHorizontal: 24,
-    borderRadius: 22,
-    backgroundColor: Colors.primary,
+    gap: 8,
+    height: 48,
+    paddingHorizontal: 22,
+    borderRadius: 18,
+    backgroundColor: '#25D366',
   },
   whatsAppButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     color: Colors.white,
   },
