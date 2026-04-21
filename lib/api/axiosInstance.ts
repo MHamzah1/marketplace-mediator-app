@@ -1,12 +1,12 @@
-import axios from 'axios';
-import { API_BASE_URL } from '@/constants/Config';
-import * as SecureStore from 'expo-secure-store';
+import axios from "axios";
+import { API_BASE_URL } from "@/constants/Config";
+import * as SecureStore from "expo-secure-store";
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -14,7 +14,7 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   async (config) => {
     try {
-      const token = await SecureStore.getItemAsync('accessToken');
+      const token = await SecureStore.getItemAsync("accessToken");
       config.headers = config.headers ?? {};
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
@@ -24,7 +24,11 @@ axiosInstance.interceptors.request.use(
     }
 
     if (__DEV__) {
-      console.log('[API]', (config.method || 'GET').toUpperCase(), `${config.baseURL}${config.url}`);
+      console.log(
+        "[API]",
+        (config.method || "GET").toUpperCase(),
+        `${config.baseURL}${config.url}`,
+      );
     }
 
     return config;
@@ -37,8 +41,8 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (__DEV__) {
-      console.log('[API_ERROR]', {
-        url: `${error.config?.baseURL || ''}${error.config?.url || ''}`,
+      console.log("[API_ERROR]", {
+        url: `${error.config?.baseURL || ""}${error.config?.url || ""}`,
         status: error.response?.status,
         message: error.response?.data?.message || error.message,
       });
@@ -46,7 +50,7 @@ axiosInstance.interceptors.response.use(
 
     if (error.response?.status === 401) {
       try {
-        await SecureStore.deleteItemAsync('accessToken');
+        await SecureStore.deleteItemAsync("accessToken");
       } catch {
         // Silently fail
       }

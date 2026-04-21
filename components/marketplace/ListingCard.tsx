@@ -37,8 +37,6 @@ export default function ListingCard({
   const variantName = item.variant?.name || "";
   const conditionLabel = item.condition === "baru" ? "Baru" : "Bekas";
 
-  console.log("item ", item);
-
   if (variant === "horizontal") {
     return (
       <TouchableOpacity

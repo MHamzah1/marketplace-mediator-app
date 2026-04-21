@@ -1,4 +1,4 @@
-import axiosInstance from './axiosInstance';
+import axiosInstance from "./axiosInstance";
 import type {
   CalculatorOptions,
   ModelsByBrand,
@@ -10,10 +10,10 @@ import type {
   CalculatorModelOption,
   CalculatorVariantOption,
   CalculatorYearPriceOption,
-} from '@/types';
+} from "@/types";
 
 export async function getCalculatorOptions(): Promise<CalculatorOptions> {
-  const response = await axiosInstance.get('/price-calculator/options');
+  const response = await axiosInstance.get("/price-calculator/options");
   return response.data;
 }
 
@@ -22,7 +22,7 @@ export async function getCalculatorBrands(params?: {
   perPage?: number;
   search?: string;
 }): Promise<PaginatedResponse<CalculatorBrandOption>> {
-  const response = await axiosInstance.get('/price-calculator/brands', {
+  const response = await axiosInstance.get("/price-calculator/brands", {
     params,
   });
   return response.data;
@@ -34,7 +34,7 @@ export async function getCalculatorModels(params?: {
   perPage?: number;
   search?: string;
 }): Promise<PaginatedResponse<CalculatorModelOption>> {
-  const response = await axiosInstance.get('/price-calculator/models', {
+  const response = await axiosInstance.get("/price-calculator/models", {
     params,
   });
   return response.data;
@@ -46,7 +46,7 @@ export async function getCalculatorVariants(params?: {
   perPage?: number;
   search?: string;
 }): Promise<PaginatedResponse<CalculatorVariantOption>> {
-  const response = await axiosInstance.get('/price-calculator/variants', {
+  const response = await axiosInstance.get("/price-calculator/variants", {
     params,
   });
   return response.data;
@@ -60,19 +60,25 @@ export async function getCalculatorYearPrices(params?: {
   perPage?: number;
   year?: number;
 }): Promise<PaginatedResponse<CalculatorYearPriceOption>> {
-  const response = await axiosInstance.get('/price-calculator/year-prices', {
+  const response = await axiosInstance.get("/price-calculator/year-prices", {
     params,
   });
   return response.data;
 }
 
-export async function getModelsByBrand(brandId: string): Promise<ModelsByBrand> {
-  const response = await axiosInstance.get(`/price-calculator/brands/${brandId}/models`);
+export async function getModelsByBrand(
+  brandId: string,
+): Promise<ModelsByBrand> {
+  const response = await axiosInstance.get(
+    `/price-calculator/brands/${brandId}/models`,
+  );
   return response.data;
 }
 
 export async function getVariantsByModel(modelId: string) {
-  const response = await axiosInstance.get(`/variants`, { params: { modelId } });
+  const response = await axiosInstance.get(`/variants`, {
+    params: { modelId },
+  });
   const variants = response.data?.data ?? response.data;
 
   return (variants || []).map((variant: Record<string, unknown>) => ({
@@ -81,13 +87,21 @@ export async function getVariantsByModel(modelId: string) {
   }));
 }
 
-export async function getYearsByVariant(variantId: string): Promise<YearsByVariant> {
-  const response = await axiosInstance.get(`/price-calculator/variants/${variantId}/years`);
+export async function getYearsByVariant(
+  variantId: string,
+): Promise<YearsByVariant> {
+  const response = await axiosInstance.get(
+    `/price-calculator/variants/${variantId}/years`,
+  );
   return response.data;
 }
 
-export async function getPriceAdjustmentsByModel(modelId: string): Promise<PriceAdjustmentGroups> {
-  const response = await axiosInstance.get(`/car-models/${modelId}/price-adjustments`);
+export async function getPriceAdjustmentsByModel(
+  modelId: string,
+): Promise<PriceAdjustmentGroups> {
+  const response = await axiosInstance.get(
+    `/car-models/${modelId}/price-adjustments`,
+  );
   return response.data;
 }
 
@@ -98,6 +112,9 @@ export async function calculatePrice(params: {
   colorCode: string;
   featureCode: string;
 }): Promise<CalculationResult> {
-  const response = await axiosInstance.post('/price-calculator/calculate', params);
+  const response = await axiosInstance.post(
+    "/price-calculator/calculate",
+    params,
+  );
   return response.data;
 }

@@ -1,8 +1,13 @@
-import axiosInstance from './axiosInstance';
-import type { Brand } from '@/types';
+import axiosInstance from "./axiosInstance";
+import type { Brand } from "@/types";
 
-export async function fetchBrands(params?: { search?: string; isActive?: boolean; page?: number; perPage?: number }): Promise<Brand[]> {
-  const response = await axiosInstance.get('/brand/paged', {
+export async function fetchBrands(params?: {
+  search?: string;
+  isActive?: boolean;
+  page?: number;
+  perPage?: number;
+}): Promise<Brand[]> {
+  const response = await axiosInstance.get("/brand/paged", {
     params: {
       page: params?.page ?? 1,
       perPage: params?.perPage ?? 100,

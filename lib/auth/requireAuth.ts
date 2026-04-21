@@ -1,7 +1,7 @@
-import { Alert } from 'react-native';
-import type { Router } from 'expo-router';
+import { Alert } from "react-native";
+import type { Router } from "expo-router";
 
-type LoginReason = 'whatsapp' | 'sell' | 'manage-listings' | 'protected';
+type LoginReason = "whatsapp" | "sell" | "manage-listings" | "protected";
 
 interface RequireAuthOptions {
   redirectTo: string;
@@ -12,10 +12,10 @@ interface RequireAuthOptions {
 
 export function buildLoginRoute(
   redirectTo: string,
-  reason: LoginReason = 'protected',
+  reason: LoginReason = "protected",
 ) {
   return {
-    pathname: '/(auth)/login',
+    pathname: "/(auth)/login",
     params: {
       redirectTo,
       reason,
@@ -26,7 +26,7 @@ export function buildLoginRoute(
 export function redirectToLogin(
   router: Router,
   redirectTo: string,
-  reason: LoginReason = 'protected',
+  reason: LoginReason = "protected",
   replace = false,
 ) {
   const route = buildLoginRoute(redirectTo, reason);
@@ -48,22 +48,18 @@ export function requireAuth(
     return true;
   }
 
-  Alert.alert(
-    options.title || 'Login Diperlukan',
-    options.message,
-    [
-      { text: 'Nanti', style: 'cancel' },
-      {
-        text: 'Masuk',
-        onPress: () =>
-          redirectToLogin(
-            router,
-            options.redirectTo,
-            options.reason || 'protected',
-          ),
-      },
-    ],
-  );
+  Alert.alert(options.title || "Login Diperlukan", options.message, [
+    { text: "Nanti", style: "cancel" },
+    {
+      text: "Masuk",
+      onPress: () =>
+        redirectToLogin(
+          router,
+          options.redirectTo,
+          options.reason || "protected",
+        ),
+    },
+  ]);
 
   return false;
 }
