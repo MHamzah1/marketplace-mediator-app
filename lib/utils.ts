@@ -1,17 +1,19 @@
-import { API_BASE_URL } from '@/constants/Config';
+import { API_BASE_URL } from "@/constants/Config";
 
 /**
  * Resolve image URL from backend.
  * Backend stores relative paths like /uploads/listings/file.jpg
  * We need to prepend the API base URL (without /api suffix)
  */
-export function resolveImageUrl(path: string | undefined | null): string | undefined {
+export function resolveImageUrl(
+  path: string | undefined | null,
+): string | undefined {
   if (!path) return undefined;
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
 
   // Remove /api from the end of base URL to get server root
-  const serverRoot = API_BASE_URL.replace(/\/api\/?$/, '');
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const serverRoot = API_BASE_URL.replace(/\/api\/?$/, "");
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
   return `${serverRoot}${cleanPath}`;
 }
 
@@ -25,14 +27,14 @@ export function formatRupiah(num: number): string {
   if (num >= 1_000_000) {
     return `Rp ${(num / 1_000_000).toFixed(0)} Jt`;
   }
-  return `Rp ${num.toLocaleString('id-ID')}`;
+  return `Rp ${num.toLocaleString("id-ID")}`;
 }
 
 /**
  * Format full Rupiah (no abbreviation)
  */
 export function formatRupiahFull(num: number): string {
-  return 'Rp ' + num.toLocaleString('id-ID');
+  return "Rp " + num.toLocaleString("id-ID");
 }
 
 /**
@@ -48,16 +50,28 @@ export function formatMileage(km: number): string {
 /**
  * Get listing display title from backend Listing object
  */
-export function getListingTitle(listing: { carModel?: { brand?: { name?: string }; modelName?: string } }): string {
-  const brand = listing.carModel?.brand?.name || '';
-  const model = listing.carModel?.modelName || '';
-  return `${brand} ${model}`.trim();
+
+export function getListingTitleListing(listing: {
+  carModel?: { brand?: { name?: string }; modelName?: string };
+}): string {
+  const model = listing.carModel?.modelName || "";
+  return ` ${model}`.trim();
+}
+
+export function getListingTitle(listing: {
+  carModel?: { brand?: { name?: string }; modelName?: string };
+}): string {
+  const brand = listing.carModel?.brand?.name || "";
+  const model = listing.carModel?.modelName || "";
+  return ` ${brand} ${model}`.trim();
 }
 
 /**
  * Get first valid image URL from listing
  */
-export function getListingImage(images: string[] | undefined): string | undefined {
+export function getListingImage(
+  images: string[] | undefined,
+): string | undefined {
   if (!images || images.length === 0) return undefined;
   return resolveImageUrl(images[0]);
 }
@@ -73,7 +87,7 @@ export function timeAgo(dateString: string): string {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return 'Baru saja';
+  if (diffMins < 1) return "Baru saja";
   if (diffMins < 60) return `${diffMins} menit lalu`;
   if (diffHours < 24) return `${diffHours} jam lalu`;
   if (diffDays < 7) return `${diffDays} hari lalu`;

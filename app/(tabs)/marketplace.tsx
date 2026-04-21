@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -9,29 +15,29 @@ import {
   TouchableOpacity,
   View,
   useWindowDimensions,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import FilterSheet, {
   DEFAULT_FILTERS,
   type MarketplaceFilters,
-} from '@/components/marketplace/FilterSheet';
-import ListingCard from '@/components/marketplace/ListingCard';
-import SearchBar from '@/components/marketplace/SearchBar';
-import EmptyState from '@/components/ui/EmptyState';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
-import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/context/ThemeContext';
-import { fetchBrands } from '@/lib/api/brandService';
+} from "@/components/marketplace/FilterSheet";
+import ListingCard from "@/components/marketplace/ListingCard";
+import SearchBar from "@/components/marketplace/SearchBar";
+import EmptyState from "@/components/ui/EmptyState";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
+import { fetchBrands } from "@/lib/api/brandService";
 import {
   fetchFeaturedListings,
   fetchListings,
-} from '@/lib/api/marketplaceService';
-import { resolveImageUrl, getListingTitle, getListingImage } from '@/lib/utils';
-import type { Brand, Listing, Pagination } from '@/types';
+} from "@/lib/api/marketplaceService";
+import { resolveImageUrl, getListingTitle, getListingImage } from "@/lib/utils";
+import type { Brand, Listing, Pagination } from "@/types";
 
 export default function MarketplaceScreen() {
   const router = useRouter();
@@ -54,17 +60,17 @@ export default function MarketplaceScreen() {
   const filterReadyRef = useRef(false);
 
   const BANNER_GRADIENTS: [string, string][] = [
-    ['#FF6B35', '#C0392B'],
-    ['#6C5CE7', '#A29BFE'],
-    ['#00B4D8', '#0077B6'],
-    ['#E91E8C', '#9B1166'],
+    ["#FF6B35", "#C0392B"],
+    ["#6C5CE7", "#A29BFE"],
+    ["#00B4D8", "#0077B6"],
+    ["#E91E8C", "#9B1166"],
   ];
 
   const selectedBrandId = filters.brandId;
   const setSelectedBrandId = useCallback(
     (value: string | null | ((prev: string | null) => string | null)) => {
       setFilters((prev) => {
-        const next = typeof value === 'function' ? value(prev.brandId) : value;
+        const next = typeof value === "function" ? value(prev.brandId) : value;
         return { ...prev, brandId: next };
       });
     },
@@ -75,32 +81,29 @@ export default function MarketplaceScreen() {
     if (isLoggedIn && user?.fullName) {
       return user.fullName;
     }
-    return 'Mediator';
+    return "Mediator";
   }, [isLoggedIn, user?.fullName]);
 
-  const buildListingParams = useCallback(
-    (f: MarketplaceFilters) => {
-      const minPrice = f.minPrice ? Number(f.minPrice) : undefined;
-      const maxPrice = f.maxPrice ? Number(f.maxPrice) : undefined;
-      const yearMin = f.yearMin ? Number(f.yearMin) : undefined;
-      const yearMax = f.yearMax ? Number(f.yearMax) : undefined;
+  const buildListingParams = useCallback((f: MarketplaceFilters) => {
+    const minPrice = f.minPrice ? Number(f.minPrice) : undefined;
+    const maxPrice = f.maxPrice ? Number(f.maxPrice) : undefined;
+    const yearMin = f.yearMin ? Number(f.yearMin) : undefined;
+    const yearMax = f.yearMax ? Number(f.yearMax) : undefined;
 
-      return {
-        brandId: f.brandId || undefined,
-        condition: f.condition === 'all' ? undefined : f.condition,
-        minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
-        maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
-        yearMin: Number.isFinite(yearMin) ? yearMin : undefined,
-        yearMax: Number.isFinite(yearMax) ? yearMax : undefined,
-        transmission: f.transmission === 'all' ? undefined : f.transmission,
-        fuelType: f.fuelType === 'all' ? undefined : f.fuelType,
-        locationCity: f.locationCity ? f.locationCity : undefined,
-        periode: f.periode === 'all' ? undefined : f.periode,
-        sortBy: f.sortBy,
-      };
-    },
-    [],
-  );
+    return {
+      brandId: f.brandId || undefined,
+      condition: f.condition === "all" ? undefined : f.condition,
+      minPrice: Number.isFinite(minPrice) ? minPrice : undefined,
+      maxPrice: Number.isFinite(maxPrice) ? maxPrice : undefined,
+      yearMin: Number.isFinite(yearMin) ? yearMin : undefined,
+      yearMax: Number.isFinite(yearMax) ? yearMax : undefined,
+      transmission: f.transmission === "all" ? undefined : f.transmission,
+      fuelType: f.fuelType === "all" ? undefined : f.fuelType,
+      locationCity: f.locationCity ? f.locationCity : undefined,
+      periode: f.periode === "all" ? undefined : f.periode,
+      sortBy: f.sortBy,
+    };
+  }, []);
 
   const loadListings = useCallback(
     async (pageNum: number, append = false) => {
@@ -138,9 +141,13 @@ export default function MarketplaceScreen() {
         fetchFeaturedListings(4),
       ]);
 
-      setBrands(brandsRes.status === 'fulfilled' ? brandsRes.value ?? [] : []);
+      setBrands(
+        brandsRes.status === "fulfilled" ? (brandsRes.value ?? []) : [],
+      );
       setFeatured(
-        featuredRes.status === 'fulfilled' ? featuredRes.value.data ?? [] : [],
+        featuredRes.status === "fulfilled"
+          ? (featuredRes.value.data ?? [])
+          : [],
       );
       await loadListings(1);
     } finally {
@@ -193,7 +200,9 @@ export default function MarketplaceScreen() {
             </Text>
           </View>
           <View style={{ flexShrink: 1 }}>
-            <Text style={[styles.greeting, { color: colors.textTertiary }]}>Halo</Text>
+            <Text style={[styles.greeting, { color: colors.textTertiary }]}>
+              Halo
+            </Text>
             <Text
               style={[styles.greetingName, { color: colors.text }]}
               numberOfLines={1}
@@ -205,12 +214,22 @@ export default function MarketplaceScreen() {
 
         <View style={styles.topActions}>
           <TouchableOpacity
-            style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}
+            style={[
+              styles.iconButton,
+              { backgroundColor: colors.backgroundSecondary },
+            ]}
           >
-            <Ionicons name="notifications-outline" size={18} color={colors.text} />
+            <Ionicons
+              name="notifications-outline"
+              size={18}
+              color={colors.text}
+            />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.iconButton, { backgroundColor: colors.backgroundSecondary }]}
+            style={[
+              styles.iconButton,
+              { backgroundColor: colors.backgroundSecondary },
+            ]}
           >
             <Ionicons name="heart-outline" size={18} color={colors.text} />
           </TouchableOpacity>
@@ -227,7 +246,9 @@ export default function MarketplaceScreen() {
       {brandGrid.length > 0 ? (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Merek</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Merek
+            </Text>
             {brands.length > brandGrid.length ? (
               <TouchableOpacity onPress={() => setFilterSheetVisible(true)}>
                 <Text style={[styles.sectionLink, { color: colors.primary }]}>
@@ -248,13 +269,18 @@ export default function MarketplaceScreen() {
                   activeOpacity={0.86}
                   style={styles.brandItem}
                   onPress={() =>
-                    setSelectedBrandId((prev) => (prev === brand.id ? null : brand.id))
+                    setSelectedBrandId((prev) =>
+                      prev === brand.id ? null : brand.id,
+                    )
                   }
                 >
                   <View
                     style={[
                       styles.brandBubble,
-                      { backgroundColor: colors.backgroundSecondary, borderColor: 'transparent' },
+                      {
+                        backgroundColor: colors.backgroundSecondary,
+                        borderColor: "transparent",
+                      },
                       isActive && {
                         backgroundColor: colors.primarySoft,
                         borderColor: colors.primary,
@@ -268,7 +294,9 @@ export default function MarketplaceScreen() {
                         contentFit="contain"
                       />
                     ) : (
-                      <Text style={[styles.brandInitial, { color: colors.text }]}>
+                      <Text
+                        style={[styles.brandInitial, { color: colors.text }]}
+                      >
                         {brand.name.charAt(0)}
                       </Text>
                     )}
@@ -292,7 +320,7 @@ export default function MarketplaceScreen() {
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               Penawaran Spesial
             </Text>
-            <TouchableOpacity onPress={() => router.push('/search')}>
+            <TouchableOpacity onPress={() => router.push("/search")}>
               <Text style={[styles.sectionLink, { color: colors.primary }]}>
                 Lihat Semua
               </Text>
@@ -306,7 +334,9 @@ export default function MarketplaceScreen() {
             decelerationRate="fast"
             onMomentumScrollEnd={(event) => {
               const cardWidth = bannerWidth;
-              const index = Math.round(event.nativeEvent.contentOffset.x / cardWidth);
+              const index = Math.round(
+                event.nativeEvent.contentOffset.x / cardWidth,
+              );
               setActiveBanner(index);
             }}
           >
@@ -327,7 +357,12 @@ export default function MarketplaceScreen() {
                     style={StyleSheet.absoluteFill}
                   />
                   <View style={styles.bannerCopy}>
-                    <Text style={[styles.bannerEyebrow, { color: 'rgba(255,255,255,0.72)' }]}>
+                    <Text
+                      style={[
+                        styles.bannerEyebrow,
+                        { color: "rgba(255,255,255,0.72)" },
+                      ]}
+                    >
                       Pilihan Mediator
                     </Text>
                     <Text
@@ -336,7 +371,12 @@ export default function MarketplaceScreen() {
                     >
                       {getListingTitle(item)}
                     </Text>
-                    <Text style={[styles.bannerSubtitle, { color: 'rgba(255,255,255,0.72)' }]}>
+                    <Text
+                      style={[
+                        styles.bannerSubtitle,
+                        { color: "rgba(255,255,255,0.72)" },
+                      ]}
+                    >
                       Siap dihubungi hari ini
                     </Text>
                   </View>
@@ -344,7 +384,7 @@ export default function MarketplaceScreen() {
                     source={
                       imageUri
                         ? { uri: imageUri }
-                        : require('@/assets/images/onboarding-hero.png')
+                        : require("@/assets/images/onboarding-hero.png")
                     }
                     style={styles.bannerImage}
                     contentFit="contain"
@@ -374,9 +414,13 @@ export default function MarketplaceScreen() {
 
       <View style={[styles.section, styles.listSection]}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Rekomendasi</Text>
-          <TouchableOpacity onPress={() => router.push('/search')}>
-            <Text style={[styles.sectionLink, { color: colors.primary }]}>Lihat Semua</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            Rekomendasi
+          </Text>
+          <TouchableOpacity onPress={() => router.push("/search")}>
+            <Text style={[styles.sectionLink, { color: colors.primary }]}>
+              Lihat Semua
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -390,7 +434,9 @@ export default function MarketplaceScreen() {
             style={[
               styles.filterChip,
               {
-                backgroundColor: !selectedBrandId ? colors.primary : colors.background,
+                backgroundColor: !selectedBrandId
+                  ? colors.primary
+                  : colors.background,
                 borderColor: !selectedBrandId ? colors.primary : colors.border,
               },
             ]}
@@ -399,7 +445,9 @@ export default function MarketplaceScreen() {
             <Text
               style={[
                 styles.filterChipText,
-                { color: !selectedBrandId ? colors.white : colors.textSecondary },
+                {
+                  color: !selectedBrandId ? colors.white : colors.textSecondary,
+                },
               ]}
             >
               Semua
@@ -415,7 +463,9 @@ export default function MarketplaceScreen() {
                 style={[
                   styles.filterChip,
                   {
-                    backgroundColor: active ? colors.primary : colors.background,
+                    backgroundColor: active
+                      ? colors.primary
+                      : colors.background,
                     borderColor: active ? colors.primary : colors.border,
                   },
                 ]}
@@ -494,14 +544,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
   },
   profileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     flex: 1,
   },
@@ -509,32 +559,32 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarText: {
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   greeting: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   greetingName: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: "800",
     maxWidth: 190,
   },
   topActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   iconButton: {
     width: 36,
     height: 36,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchWrap: {
     paddingHorizontal: 16,
@@ -547,28 +597,28 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 16,
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: -0.3,
   },
   sectionLink: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   bannerCard: {
     marginHorizontal: 16,
     borderRadius: 18,
     padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
   },
   bannerCopy: {
     flex: 1,
@@ -576,14 +626,14 @@ const styles = StyleSheet.create({
   },
   bannerEyebrow: {
     fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    fontWeight: "700",
+    textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   bannerTitle: {
     marginTop: 4,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: "900",
     letterSpacing: -0.3,
     lineHeight: 22,
   },
@@ -597,8 +647,8 @@ const styles = StyleSheet.create({
     height: 70,
   },
   bannerDots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: 5,
     marginTop: 8,
   },
@@ -608,23 +658,23 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   brandGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     rowGap: 12,
     paddingHorizontal: 16,
   },
   brandItem: {
-    width: '22%',
-    alignItems: 'center',
+    width: "22%",
+    alignItems: "center",
     gap: 6,
   },
   brandBubble: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1.5,
   },
   brandLogo: {
@@ -633,11 +683,11 @@ const styles = StyleSheet.create({
   },
   brandInitial: {
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   brandLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   chipsRow: {
     paddingHorizontal: 16,
@@ -651,14 +701,14 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   row: {
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     paddingHorizontal: 12,
   },
   footerLoader: {
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
 });

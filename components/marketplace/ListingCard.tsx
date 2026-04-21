@@ -1,28 +1,45 @@
-import React from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import Colors, { Shadows } from '@/constants/Colors';
-import type { Listing } from '@/types';
-import { formatMileage, formatRupiah, getListingImage, getListingTitle } from '@/lib/utils';
+import React from "react";
+import {
+  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import Colors, { Shadows } from "@/constants/Colors";
+import type { Listing } from "@/types";
+import {
+  formatMileage,
+  formatRupiah,
+  getListingImage,
+  getListingTitle,
+  getListingTitleListing,
+} from "@/lib/utils";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 48) / 2;
 
 interface ListingCardProps {
   item: Listing;
-  variant?: 'grid' | 'horizontal';
+  variant?: "grid" | "horizontal";
 }
 
-export default function ListingCard({ item, variant = 'grid' }: ListingCardProps) {
+export default function ListingCard({
+  item,
+  variant = "grid",
+}: ListingCardProps) {
   const router = useRouter();
-  const title = getListingTitle(item);
+  const title = getListingTitleListing(item);
   const imageUri = getListingImage(item.images);
-  const variantName = item.variant?.name || '';
-  const conditionLabel = item.condition === 'baru' ? 'Baru' : 'Bekas';
+  const variantName = item.variant?.name || "";
+  const conditionLabel = item.condition === "baru" ? "Baru" : "Bekas";
 
-  if (variant === 'horizontal') {
+  console.log("item ", item);
+
+  if (variant === "horizontal") {
     return (
       <TouchableOpacity
         activeOpacity={0.86}
@@ -30,7 +47,11 @@ export default function ListingCard({ item, variant = 'grid' }: ListingCardProps
         style={[styles.horizontalCard, Shadows.medium]}
       >
         <Image
-          source={imageUri ? { uri: imageUri } : require('@/assets/images/onboarding-hero.png')}
+          source={
+            imageUri
+              ? { uri: imageUri }
+              : require("@/assets/images/onboarding-hero.png")
+          }
           style={styles.horizontalImage}
           contentFit="cover"
           transition={300}
@@ -66,8 +87,14 @@ export default function ListingCard({ item, variant = 'grid' }: ListingCardProps
 
           <View style={styles.bottomMetaRow}>
             <View style={styles.ratingRow}>
-              <Ionicons name="speedometer-outline" size={12} color={Colors.textTertiary} />
-              <Text style={styles.locationText}>{formatMileage(item.mileage)}</Text>
+              <Ionicons
+                name="speedometer-outline"
+                size={12}
+                color={Colors.textTertiary}
+              />
+              <Text style={styles.locationText}>
+                {formatMileage(item.mileage)}
+              </Text>
             </View>
             <Text style={styles.locationText} numberOfLines={1}>
               {item.locationCity}
@@ -86,7 +113,11 @@ export default function ListingCard({ item, variant = 'grid' }: ListingCardProps
     >
       <View style={styles.imageContainer}>
         <Image
-          source={imageUri ? { uri: imageUri } : require('@/assets/images/onboarding-hero.png')}
+          source={
+            imageUri
+              ? { uri: imageUri }
+              : require("@/assets/images/onboarding-hero.png")
+          }
           style={styles.gridImage}
           contentFit="cover"
           transition={300}
@@ -128,8 +159,14 @@ export default function ListingCard({ item, variant = 'grid' }: ListingCardProps
 
         <View style={styles.bottomMetaRow}>
           <View style={styles.ratingRow}>
-            <Ionicons name="speedometer-outline" size={12} color={Colors.textTertiary} />
-            <Text style={styles.locationText}>{formatMileage(item.mileage)}</Text>
+            <Ionicons
+              name="speedometer-outline"
+              size={12}
+              color={Colors.textTertiary}
+            />
+            <Text style={styles.locationText}>
+              {formatMileage(item.mileage)}
+            </Text>
           </View>
           <Text style={styles.locationText} numberOfLines={1}>
             {item.locationCity}
@@ -145,36 +182,36 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     backgroundColor: Colors.card,
     borderRadius: 24,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 16,
   },
   imageContainer: {
-    position: 'relative',
+    position: "relative",
   },
   gridImage: {
-    width: '100%',
+    width: "100%",
     height: CARD_WIDTH * 0.78,
     backgroundColor: Colors.inputFill,
   },
   gridHeartButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 12,
     right: 12,
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   gridContent: {
     padding: 14,
   },
   horizontalCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: Colors.card,
     borderRadius: 24,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginHorizontal: 16,
     marginBottom: 12,
   },
@@ -186,12 +223,12 @@ const styles = StyleSheet.create({
   horizontalContent: {
     flex: 1,
     padding: 14,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   topMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   yearCapsule: {
     paddingHorizontal: 10,
@@ -201,7 +238,7 @@ const styles = StyleSheet.create({
   },
   yearCapsuleText: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Colors.textSecondary,
   },
   heartButton: {
@@ -209,8 +246,8 @@ const styles = StyleSheet.create({
     height: 30,
     borderRadius: 15,
     backgroundColor: Colors.backgroundSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   featureTag: {
     paddingHorizontal: 10,
@@ -220,24 +257,24 @@ const styles = StyleSheet.create({
   },
   featureTagText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Colors.text,
   },
   brand: {
     marginTop: 10,
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Colors.text,
     letterSpacing: -0.4,
   },
   variant: {
     marginTop: 4,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.textSecondary,
   },
   infoRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
     marginTop: 10,
   },
@@ -249,32 +286,32 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Colors.textSecondary,
   },
   price: {
     marginTop: 12,
     fontSize: 19,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Colors.text,
     letterSpacing: -0.6,
   },
   bottomMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     gap: 8,
     marginTop: 10,
   },
   ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   locationText: {
     flex: 1,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.textTertiary,
   },
 });
