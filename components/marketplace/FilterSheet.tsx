@@ -11,6 +11,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AuthActionButton from "@/components/auth/AuthActionButton";
+import SearchableSelectField, {
+  SearchableSelectOption,
+} from "@/components/ui/SearchableSelectField";
 import { useTheme } from "@/context/ThemeContext";
 import { Shadows } from "@/constants/Colors";
 import type { Brand } from "@/types";
@@ -58,44 +61,44 @@ interface FilterSheetProps {
   initial: MarketplaceFilters;
 }
 
-const SORT_OPTIONS: { id: SortBy; label: string }[] = [
+const SORT_OPTIONS: SearchableSelectOption[] = [
   { id: "newest", label: "Terbaru" },
   { id: "oldest", label: "Terlama" },
   { id: "price_asc", label: "Harga Terendah" },
   { id: "price_desc", label: "Harga Tertinggi" },
-  { id: "mileage", label: "Kilometer" },
+  { id: "mileage", label: "Kilometer Terendah" },
 ];
 
-const CONDITION_OPTIONS: { id: Condition; label: string }[] = [
-  { id: "all", label: "Semua" },
+const CONDITION_OPTIONS: SearchableSelectOption[] = [
+  { id: "all", label: "Semua Kondisi" },
   { id: "baru", label: "Baru" },
   { id: "bekas", label: "Bekas" },
 ];
 
-const TRANSMISSION_OPTIONS: { id: Transmission; label: string }[] = [
-  { id: "all", label: "Semua" },
+const TRANSMISSION_OPTIONS: SearchableSelectOption[] = [
+  { id: "all", label: "Semua Transmisi" },
   { id: "manual", label: "Manual" },
   { id: "matic", label: "Matic" },
   { id: "cvt", label: "CVT" },
 ];
 
-const FUEL_OPTIONS: { id: FuelType; label: string }[] = [
-  { id: "all", label: "Semua" },
+const FUEL_OPTIONS: SearchableSelectOption[] = [
+  { id: "all", label: "Semua Bahan Bakar" },
   { id: "bensin", label: "Bensin" },
   { id: "diesel", label: "Diesel" },
   { id: "hybrid", label: "Hybrid" },
   { id: "listrik", label: "Listrik" },
 ];
 
-const PERIODE_OPTIONS: { id: Periode; label: string }[] = [
-  { id: "all", label: "Semua" },
+const PERIODE_OPTIONS: SearchableSelectOption[] = [
+  { id: "all", label: "Semua Periode" },
   { id: "Today", label: "Hari Ini" },
   { id: "ThisWeek", label: "Minggu Ini" },
   { id: "LastWeek", label: "Minggu Lalu" },
   { id: "ThisMonth", label: "Bulan Ini" },
   { id: "LastMonth", label: "Bulan Lalu" },
-  { id: "Last3Months", label: "3 Bulan" },
-  { id: "Last6Months", label: "6 Bulan" },
+  { id: "Last3Months", label: "3 Bulan Terakhir" },
+  { id: "Last6Months", label: "6 Bulan Terakhir" },
   { id: "ThisYear", label: "Tahun Ini" },
   { id: "LastYear", label: "Tahun Lalu" },
 ];
@@ -114,6 +117,24 @@ export const DEFAULT_FILTERS: MarketplaceFilters = {
   sortBy: "newest",
 };
 
+function labelOf(
+  options: SearchableSelectOption[],
+  id: string | null | undefined,
+): string | null {
+  if (!id) return null;
+  return options.find((o) => o.id === id)?.label ?? null;
+}
+
+function fmtRupiah(raw: string): string {
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function stripRupiah(formatted: string): string {
+  return formatted.replace(/\./g, "");
+}
+
 export default function FilterSheet({
   visible,
   onClose,
@@ -130,48 +151,23 @@ export default function FilterSheet({
     if (visible) setDraft(initial);
   }, [visible, initial]);
 
+  const brandOptions: SearchableSelectOption[] = [
+    { id: "__all__", label: "Semua Merek" },
+    ...brands.map((b) => ({ id: b.id, label: b.name })),
+  ];
+
   const reset = () => setDraft(DEFAULT_FILTERS);
   const apply = () => {
     onApply(draft);
     onClose();
   };
 
-  const renderChipRow = <T extends string>(
-    options: { id: T; label: string }[],
-    value: T,
-    onPick: (next: T) => void,
-  ) => (
-    <View style={styles.chipRow}>
-      {options.map((option) => {
-        const active = value === option.id;
-        return (
-          <TouchableOpacity
-            key={option.id}
-            activeOpacity={0.85}
-            onPress={() => onPick(option.id)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: active
-                  ? colors.primary
-                  : colors.backgroundSecondary,
-                borderColor: active ? colors.primary : colors.border,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                { color: active ? colors.white : colors.textSecondary },
-              ]}
-            >
-              {option.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
-  );
+  const inputContainerStyle = {
+    borderColor: colors.border,
+    backgroundColor: colors.backgroundSecondary,
+  } as const;
+
+  const inputTextStyle = [styles.textInput, { color: colors.text }];
 
   return (
     <Modal
@@ -202,7 +198,7 @@ export default function FilterSheet({
 
           <View style={styles.headerRow}>
             <Text style={[styles.title, { color: colors.text }]}>
-              Sort & Filter
+              Sort &amp; Filter
             </Text>
             <TouchableOpacity onPress={reset}>
               <Text style={[styles.resetText, { color: colors.primary }]}>
@@ -214,274 +210,193 @@ export default function FilterSheet({
           <ScrollView
             showsVerticalScrollIndicator={false}
             style={{ maxHeight: 560 }}
+            keyboardShouldPersistTaps="handled"
           >
-            <Text
-              style={[styles.sectionLabel, { color: colors.textSecondary }]}
-            >
-              Urut
-            </Text>
-            {renderChipRow(SORT_OPTIONS, draft.sortBy, (v) =>
-              setDraft((d) => ({ ...d, sortBy: v })),
-            )}
-
-            <Text
-              style={[styles.sectionLabel, { color: colors.textSecondary }]}
-            >
-              Kondisi
-            </Text>
-            {renderChipRow(CONDITION_OPTIONS, draft.condition, (v) =>
-              setDraft((d) => ({ ...d, condition: v })),
-            )}
-
-            <Text
-              style={[styles.sectionLabel, { color: colors.textSecondary }]}
-            >
-              Transmisi
-            </Text>
-            {renderChipRow(TRANSMISSION_OPTIONS, draft.transmission, (v) =>
-              setDraft((d) => ({ ...d, transmission: v })),
-            )}
-
-            <Text
-              style={[styles.sectionLabel, { color: colors.textSecondary }]}
-            >
-              Bahan Bakar
-            </Text>
-            {renderChipRow(FUEL_OPTIONS, draft.fuelType, (v) =>
-              setDraft((d) => ({ ...d, fuelType: v })),
-            )}
-
-            <Text
-              style={[styles.sectionLabel, { color: colors.textSecondary }]}
-            >
-              Periode
-            </Text>
-            {renderChipRow(PERIODE_OPTIONS, draft.periode, (v) =>
-              setDraft((d) => ({ ...d, periode: v })),
-            )}
-
-            <Text
-              style={[styles.sectionLabel, { color: colors.textSecondary }]}
-            >
-              Merek
-            </Text>
-            <View style={styles.chipRow}>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={() => setDraft((d) => ({ ...d, brandId: null }))}
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor: !draft.brandId
-                      ? colors.primary
-                      : colors.backgroundSecondary,
-                    borderColor: !draft.brandId
-                      ? colors.primary
-                      : colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    {
-                      color: !draft.brandId
-                        ? colors.white
-                        : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  Semua
-                </Text>
-              </TouchableOpacity>
-              {brands.map((brand) => {
-                const active = draft.brandId === brand.id;
-                return (
-                  <TouchableOpacity
-                    key={brand.id}
-                    activeOpacity={0.85}
-                    onPress={() =>
-                      setDraft((d) => ({ ...d, brandId: brand.id }))
-                    }
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: active
-                          ? colors.primary
-                          : colors.backgroundSecondary,
-                        borderColor: active ? colors.primary : colors.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: active ? colors.white : colors.textSecondary },
-                      ]}
-                    >
-                      {brand.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            <Text
-              style={[styles.sectionLabel, { color: colors.textSecondary }]}
-            >
-              Harga (Rp)
-            </Text>
-            <View style={styles.twoColRow}>
-              <View
-                style={[
-                  styles.inputWrap,
-                  {
-                    backgroundColor: colors.backgroundSecondary,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="arrow-down"
-                  size={14}
-                  color={colors.textTertiary}
-                />
-                <TextInput
-                  value={draft.minPrice}
-                  onChangeText={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      minPrice: v.replace(/[^0-9]/g, ""),
-                    }))
-                  }
-                  placeholder="Min"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="numeric"
-                  style={[styles.input, { color: colors.text }]}
-                />
-              </View>
-              <View
-                style={[
-                  styles.inputWrap,
-                  {
-                    backgroundColor: colors.backgroundSecondary,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="arrow-up"
-                  size={14}
-                  color={colors.textTertiary}
-                />
-                <TextInput
-                  value={draft.maxPrice}
-                  onChangeText={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      maxPrice: v.replace(/[^0-9]/g, ""),
-                    }))
-                  }
-                  placeholder="Max"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="numeric"
-                  style={[styles.input, { color: colors.text }]}
-                />
-              </View>
-            </View>
-
-            <Text
-              style={[styles.sectionLabel, { color: colors.textSecondary }]}
-            >
-              Tahun
-            </Text>
-            <View style={styles.twoColRow}>
-              <View
-                style={[
-                  styles.inputWrap,
-                  {
-                    backgroundColor: colors.backgroundSecondary,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={14}
-                  color={colors.textTertiary}
-                />
-                <TextInput
-                  value={draft.yearMin}
-                  onChangeText={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      yearMin: v.replace(/[^0-9]/g, "").slice(0, 4),
-                    }))
-                  }
-                  placeholder="Dari"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="numeric"
-                  style={[styles.input, { color: colors.text }]}
-                />
-              </View>
-              <View
-                style={[
-                  styles.inputWrap,
-                  {
-                    backgroundColor: colors.backgroundSecondary,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={14}
-                  color={colors.textTertiary}
-                />
-                <TextInput
-                  value={draft.yearMax}
-                  onChangeText={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      yearMax: v.replace(/[^0-9]/g, "").slice(0, 4),
-                    }))
-                  }
-                  placeholder="Sampai"
-                  placeholderTextColor={colors.textTertiary}
-                  keyboardType="numeric"
-                  style={[styles.input, { color: colors.text }]}
-                />
-              </View>
-            </View>
-
-            <Text
-              style={[styles.sectionLabel, { color: colors.textSecondary }]}
-            >
-              Kota
-            </Text>
-            <View
-              style={[
-                styles.inputWrap,
-                {
-                  backgroundColor: colors.backgroundSecondary,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Ionicons
-                name="location-outline"
-                size={14}
-                color={colors.textTertiary}
-              />
-              <TextInput
-                value={draft.locationCity}
-                onChangeText={(v) =>
-                  setDraft((d) => ({ ...d, locationCity: v }))
+            <View style={styles.form}>
+              {/* Sort */}
+              <SearchableSelectField
+                label="Urutkan"
+                placeholder="Pilih urutan"
+                modalTitle="Urutkan"
+                selectedId={draft.sortBy}
+                selectedLabel={labelOf(SORT_OPTIONS, draft.sortBy)}
+                options={SORT_OPTIONS}
+                onSelect={(opt) =>
+                  setDraft((d) => ({ ...d, sortBy: opt.id as SortBy }))
                 }
-                placeholder="Mis. Jakarta, Bandung"
-                placeholderTextColor={colors.textTertiary}
-                style={[styles.input, { color: colors.text }]}
               />
+
+              {/* Kondisi */}
+              <SearchableSelectField
+                label="Kondisi"
+                placeholder="Pilih kondisi"
+                modalTitle="Kondisi Kendaraan"
+                selectedId={draft.condition}
+                selectedLabel={labelOf(CONDITION_OPTIONS, draft.condition)}
+                options={CONDITION_OPTIONS}
+                onSelect={(opt) =>
+                  setDraft((d) => ({ ...d, condition: opt.id as Condition }))
+                }
+              />
+
+              {/* Merek */}
+              <SearchableSelectField
+                label="Merek"
+                placeholder="Pilih merek"
+                modalTitle="Pilih Merek"
+                selectedId={draft.brandId ?? "__all__"}
+                selectedLabel={
+                  draft.brandId
+                    ? labelOf(brandOptions, draft.brandId)
+                    : "Semua Merek"
+                }
+                options={brandOptions}
+                onSelect={(opt) =>
+                  setDraft((d) => ({
+                    ...d,
+                    brandId: opt.id === "__all__" ? null : opt.id,
+                  }))
+                }
+                searchEnabled
+                searchPlaceholder="Cari merek..."
+              />
+
+              {/* Transmisi */}
+              <SearchableSelectField
+                label="Transmisi"
+                placeholder="Pilih transmisi"
+                modalTitle="Transmisi"
+                selectedId={draft.transmission}
+                selectedLabel={labelOf(TRANSMISSION_OPTIONS, draft.transmission)}
+                options={TRANSMISSION_OPTIONS}
+                onSelect={(opt) =>
+                  setDraft((d) => ({
+                    ...d,
+                    transmission: opt.id as Transmission,
+                  }))
+                }
+              />
+
+              {/* Bahan Bakar */}
+              <SearchableSelectField
+                label="Bahan Bakar"
+                placeholder="Pilih bahan bakar"
+                modalTitle="Bahan Bakar"
+                selectedId={draft.fuelType}
+                selectedLabel={labelOf(FUEL_OPTIONS, draft.fuelType)}
+                options={FUEL_OPTIONS}
+                onSelect={(opt) =>
+                  setDraft((d) => ({ ...d, fuelType: opt.id as FuelType }))
+                }
+              />
+
+              {/* Periode */}
+              <SearchableSelectField
+                label="Periode Listing"
+                placeholder="Pilih periode"
+                modalTitle="Periode"
+                selectedId={draft.periode}
+                selectedLabel={labelOf(PERIODE_OPTIONS, draft.periode)}
+                options={PERIODE_OPTIONS}
+                onSelect={(opt) =>
+                  setDraft((d) => ({ ...d, periode: opt.id as Periode }))
+                }
+              />
+
+              {/* Harga */}
+              <View>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Rentang Harga (Rp)
+                </Text>
+                <View style={styles.twoCol}>
+                  <View style={[styles.inputWrap, { flex: 1 }, inputContainerStyle]}>
+                    <Ionicons name="arrow-down" size={14} color={colors.textTertiary} />
+                    <TextInput
+                      value={fmtRupiah(draft.minPrice)}
+                      onChangeText={(v) =>
+                        setDraft((d) => ({ ...d, minPrice: stripRupiah(v) }))
+                      }
+                      placeholder="Min"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="numeric"
+                      style={inputTextStyle}
+                    />
+                  </View>
+                  <View style={[styles.inputWrap, { flex: 1 }, inputContainerStyle]}>
+                    <Ionicons name="arrow-up" size={14} color={colors.textTertiary} />
+                    <TextInput
+                      value={fmtRupiah(draft.maxPrice)}
+                      onChangeText={(v) =>
+                        setDraft((d) => ({ ...d, maxPrice: stripRupiah(v) }))
+                      }
+                      placeholder="Max"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="numeric"
+                      style={inputTextStyle}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Tahun */}
+              <View>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Tahun
+                </Text>
+                <View style={styles.twoCol}>
+                  <View style={[styles.inputWrap, { flex: 1 }, inputContainerStyle]}>
+                    <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} />
+                    <TextInput
+                      value={draft.yearMin}
+                      onChangeText={(v) =>
+                        setDraft((d) => ({
+                          ...d,
+                          yearMin: v.replace(/[^0-9]/g, "").slice(0, 4),
+                        }))
+                      }
+                      placeholder="Dari"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="numeric"
+                      style={inputTextStyle}
+                    />
+                  </View>
+                  <View style={[styles.inputWrap, { flex: 1 }, inputContainerStyle]}>
+                    <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} />
+                    <TextInput
+                      value={draft.yearMax}
+                      onChangeText={(v) =>
+                        setDraft((d) => ({
+                          ...d,
+                          yearMax: v.replace(/[^0-9]/g, "").slice(0, 4),
+                        }))
+                      }
+                      placeholder="Sampai"
+                      placeholderTextColor={colors.textTertiary}
+                      keyboardType="numeric"
+                      style={inputTextStyle}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Kota */}
+              <View>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                  Kota
+                </Text>
+                <View style={[styles.inputWrap, inputContainerStyle]}>
+                  <Ionicons name="location-outline" size={14} color={colors.textTertiary} />
+                  <TextInput
+                    value={draft.locationCity}
+                    onChangeText={(v) =>
+                      setDraft((d) => ({ ...d, locationCity: v }))
+                    }
+                    placeholder="Mis. Jakarta, Bandung"
+                    placeholderTextColor={colors.textTertiary}
+                    style={[inputTextStyle, { flex: 1 }]}
+                  />
+                </View>
+              </View>
             </View>
           </ScrollView>
 
@@ -499,11 +414,7 @@ export default function FilterSheet({
               </Text>
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
-              <AuthActionButton
-                label="Terapkan"
-                onPress={apply}
-                variant="dark"
-              />
+              <AuthActionButton label="Terapkan" onPress={apply} variant="dark" />
             </View>
           </View>
         </View>
@@ -539,6 +450,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 4,
   },
   title: {
     fontSize: 20,
@@ -549,35 +461,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
-  sectionLabel: {
-    marginTop: 14,
-    marginBottom: 8,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
+  form: {
+    gap: 14,
+    paddingBottom: 8,
   },
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  chipText: {
+  fieldLabel: {
     fontSize: 12,
     fontWeight: "700",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
-  twoColRow: {
+  twoCol: {
     flexDirection: "row",
     gap: 10,
   },
   inputWrap: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -585,16 +484,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     borderWidth: 1,
+    borderColor: "transparent",
+    backgroundColor: "transparent",
   },
-  input: {
+  textInput: {
     flex: 1,
     fontSize: 14,
     fontWeight: "600",
+    borderWidth: 0,
+    padding: 0,
   },
   footerRow: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 14,
+    marginTop: 12,
   },
   cancelButton: {
     height: 50,
