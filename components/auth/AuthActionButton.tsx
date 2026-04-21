@@ -1,10 +1,16 @@
-import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Colors, { Shadows } from '@/constants/Colors';
+import React from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import Colors, { Shadows } from "@/constants/Colors";
 
-type Variant = 'dark' | 'light' | 'muted';
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+type Variant = "dark" | "light" | "muted";
+type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
 
 interface AuthActionButtonProps {
   label: string;
@@ -21,10 +27,10 @@ export default function AuthActionButton({
   loading = false,
   disabled = false,
   icon,
-  variant = 'dark',
+  variant = "dark",
 }: AuthActionButtonProps) {
-  const isDark = variant === 'dark';
-  const isLight = variant === 'light';
+  const isDark = variant === "dark";
+  const isLight = variant === "light";
 
   return (
     <TouchableOpacity
@@ -35,7 +41,7 @@ export default function AuthActionButton({
         styles.button,
         isDark && [styles.buttonDark, Shadows.blue],
         isLight && styles.buttonLight,
-        variant === 'muted' && styles.buttonMuted,
+        variant === "muted" && styles.buttonMuted,
         (disabled || loading) && styles.buttonDisabled,
       ]}
     >
@@ -68,8 +74,8 @@ const styles = StyleSheet.create({
   button: {
     height: 58,
     borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   buttonDark: {
     backgroundColor: Colors.primary,
@@ -84,13 +90,13 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   content: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 10,
   },
   label: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: "800",
   },
 });

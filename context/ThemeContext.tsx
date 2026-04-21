@@ -1,9 +1,21 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useColorScheme } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { DarkColors, LightColors, type ThemeMode, type ThemePalette } from '@/constants/Colors';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useColorScheme } from "react-native";
+import * as SecureStore from "expo-secure-store";
+import {
+  DarkColors,
+  LightColors,
+  type ThemeMode,
+  type ThemePalette,
+} from "@/constants/Colors";
 
-type ThemePreference = ThemeMode | 'system';
+type ThemePreference = ThemeMode | "system";
 
 interface ThemeContextValue {
   mode: ThemeMode;
@@ -14,20 +26,22 @@ interface ThemeContextValue {
   toggle: () => void;
 }
 
-const STORAGE_KEY = 'mediator_theme_preference';
+const STORAGE_KEY = "mediator_theme_preference";
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const system = useColorScheme();
-  const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  const [preference, setPreferenceState] = useState<ThemePreference>("system");
 
   useEffect(() => {
     let mounted = true;
     SecureStore.getItemAsync(STORAGE_KEY)
       .then((value) => {
         if (!mounted || !value) return;
-        if (value === 'light' || value === 'dark' || value === 'system') {
+        if (value === "light" || value === "dark" || value === "system") {
           setPreferenceState(value);
         }
       })
@@ -43,17 +57,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const mode: ThemeMode = useMemo(() => {
-    if (preference === 'system') {
-      return system === 'dark' ? 'dark' : 'light';
+    if (preference === "system") {
+      return system === "dark" ? "dark" : "light";
     }
     return preference;
   }, [preference, system]);
 
-  const colors = mode === 'dark' ? DarkColors : LightColors;
-  const isDark = mode === 'dark';
+  const colors = mode === "dark" ? DarkColors : LightColors;
+  const isDark = mode === "dark";
 
   const toggle = useCallback(() => {
-    setPreference(isDark ? 'light' : 'dark');
+    setPreference(isDark ? "light" : "dark");
   }, [isDark, setPreference]);
 
   const value: ThemeContextValue = {
@@ -65,12 +79,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     toggle,
   };
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 };
 
 export const useTheme = () => {
   const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error('useTheme must be used within a ThemeProvider');
+  if (!ctx) throw new Error("useTheme must be used within a ThemeProvider");
   return ctx;
 };
 

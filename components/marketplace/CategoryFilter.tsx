@@ -1,16 +1,52 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Colors, { Shadows } from '@/constants/Colors';
+import React from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import Colors, { Shadows } from "@/constants/Colors";
 
 const CATEGORIES = [
-  { id: 'all', label: 'Semua', icon: 'apps' as const, color: Colors.categoryAll },
-  { id: 'suv', label: 'SUV', icon: 'car-sport' as const, color: Colors.categorySUV },
-  { id: 'sedan', label: 'Sedan', icon: 'car' as const, color: Colors.categorySedan },
-  { id: 'hatchback', label: 'Hatch', icon: 'car-sport-outline' as const, color: Colors.categoryHatchback },
-  { id: 'mpv', label: 'MPV', icon: 'bus' as const, color: Colors.categoryMPV },
-  { id: 'pickup', label: 'Pickup', icon: 'cube' as const, color: Colors.categoryPickup },
-  { id: 'sport', label: 'Sport', icon: 'speedometer' as const, color: Colors.categorySport },
+  {
+    id: "all",
+    label: "Semua",
+    icon: "apps" as const,
+    color: Colors.categoryAll,
+  },
+  {
+    id: "suv",
+    label: "SUV",
+    icon: "car-sport" as const,
+    color: Colors.categorySUV,
+  },
+  {
+    id: "sedan",
+    label: "Sedan",
+    icon: "car" as const,
+    color: Colors.categorySedan,
+  },
+  {
+    id: "hatchback",
+    label: "Hatch",
+    icon: "car-sport-outline" as const,
+    color: Colors.categoryHatchback,
+  },
+  { id: "mpv", label: "MPV", icon: "bus" as const, color: Colors.categoryMPV },
+  {
+    id: "pickup",
+    label: "Pickup",
+    icon: "cube" as const,
+    color: Colors.categoryPickup,
+  },
+  {
+    id: "sport",
+    label: "Sport",
+    icon: "speedometer" as const,
+    color: Colors.categorySport,
+  },
 ];
 
 interface CategoryFilterProps {
@@ -18,7 +54,10 @@ interface CategoryFilterProps {
   onSelect: (categoryId: string) => void;
 }
 
-export default function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
+export default function CategoryFilter({
+  selected,
+  onSelect,
+}: CategoryFilterProps) {
   return (
     <ScrollView
       horizontal
@@ -43,8 +82,8 @@ export default function CategoryFilter({ selected, onSelect }: CategoryFilterPro
                 styles.iconBg,
                 {
                   backgroundColor: isActive
-                    ? 'rgba(255,255,255,0.25)'
-                    : cat.color + '15',
+                    ? "rgba(255,255,255,0.25)"
+                    : cat.color + "15",
                 },
               ]}
             >
@@ -76,8 +115,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
@@ -89,11 +128,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   label: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

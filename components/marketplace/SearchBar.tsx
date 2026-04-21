@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import Colors, { Shadows } from '@/constants/Colors';
+import React from "react";
+import { View, TextInput, TouchableOpacity, StyleSheet } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import Colors, { Shadows } from "@/constants/Colors";
 
 interface SearchBarProps {
   value?: string;
@@ -18,7 +18,7 @@ interface SearchBarProps {
 export default function SearchBar({
   value,
   onChangeText,
-  placeholder = 'Cari mobil impian Anda...',
+  placeholder = "Cari mobil impian Anda...",
   onPress,
   editable = false,
   autoFocus = false,
@@ -31,7 +31,7 @@ export default function SearchBar({
     if (onPress) {
       onPress();
     } else {
-      router.push('/search');
+      router.push("/search");
     }
   };
 
@@ -88,7 +88,10 @@ export default function SearchBar({
           <Ionicons name="options-outline" size={18} color={Colors.text} />
         </TouchableOpacity>
       ) : value ? (
-        <TouchableOpacity onPress={() => onChangeText?.('')} style={styles.trailingButton}>
+        <TouchableOpacity
+          onPress={() => onChangeText?.("")}
+          style={styles.trailingButton}
+        >
           <Ionicons name="close-circle" size={20} color={Colors.textTertiary} />
         </TouchableOpacity>
       ) : null}
@@ -98,8 +101,8 @@ export default function SearchBar({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.inputFill,
     borderRadius: 18,
     paddingHorizontal: 6,
@@ -110,14 +113,14 @@ const styles = StyleSheet.create({
   },
   searchRow: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   iconContainer: {
     width: 44,
     height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   textContainer: {
     flex: 1,
@@ -126,13 +129,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: Colors.text,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   trailingButton: {
     width: 44,
     height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 14,
     backgroundColor: Colors.white,
   },

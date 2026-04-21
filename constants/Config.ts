@@ -15,9 +15,9 @@ function getConfiguredApiBaseUrl() {
 }
 
 function getExpoDevHost() {
-  const expoGoConfig = Constants.expoGoConfig as
-    | { debuggerHost?: string }
-    | null;
+  const expoGoConfig = Constants.expoGoConfig as {
+    debuggerHost?: string;
+  } | null;
   const hostUri =
     Constants.expoConfig?.hostUri ?? expoGoConfig?.debuggerHost ?? null;
 

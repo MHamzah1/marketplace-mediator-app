@@ -1,15 +1,15 @@
-import React from 'react';
+import React from "react";
 import {
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Colors from '@/constants/Colors';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import Colors from "@/constants/Colors";
 
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
 
 interface AuthInputFieldProps {
   value: string;
@@ -20,9 +20,9 @@ interface AuthInputFieldProps {
   dark?: boolean;
   secureTextEntry?: boolean;
   onToggleSecure?: () => void;
-  keyboardType?: React.ComponentProps<typeof TextInput>['keyboardType'];
-  autoComplete?: React.ComponentProps<typeof TextInput>['autoComplete'];
-  autoCapitalize?: React.ComponentProps<typeof TextInput>['autoCapitalize'];
+  keyboardType?: React.ComponentProps<typeof TextInput>["keyboardType"];
+  autoComplete?: React.ComponentProps<typeof TextInput>["autoComplete"];
+  autoCapitalize?: React.ComponentProps<typeof TextInput>["autoCapitalize"];
   editable?: boolean;
 }
 
@@ -35,9 +35,9 @@ export default function AuthInputField({
   dark = false,
   secureTextEntry = false,
   onToggleSecure,
-  keyboardType = 'default',
+  keyboardType = "default",
   autoComplete,
-  autoCapitalize = 'none',
+  autoCapitalize = "none",
   editable = true,
 }: AuthInputFieldProps) {
   return (
@@ -49,14 +49,16 @@ export default function AuthInputField({
         <Ionicons
           name={icon}
           size={18}
-          color={dark ? 'rgba(255,255,255,0.65)' : Colors.textTertiary}
+          color={dark ? "rgba(255,255,255,0.65)" : Colors.textTertiary}
         />
         <TextInput
           style={[styles.input, dark && styles.inputDark]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={dark ? 'rgba(255,255,255,0.32)' : Colors.textTertiary}
+          placeholderTextColor={
+            dark ? "rgba(255,255,255,0.32)" : Colors.textTertiary
+          }
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoComplete={autoComplete}
@@ -66,9 +68,9 @@ export default function AuthInputField({
         {onToggleSecure ? (
           <TouchableOpacity onPress={onToggleSecure}>
             <Ionicons
-              name={secureTextEntry ? 'eye-outline' : 'eye-off-outline'}
+              name={secureTextEntry ? "eye-outline" : "eye-off-outline"}
               size={18}
-              color={dark ? 'rgba(255,255,255,0.65)' : Colors.textTertiary}
+              color={dark ? "rgba(255,255,255,0.65)" : Colors.textTertiary}
             />
           </TouchableOpacity>
         ) : null}
@@ -83,15 +85,15 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Colors.textSecondary,
   },
   labelDark: {
-    color: 'rgba(255,255,255,0.82)',
+    color: "rgba(255,255,255,0.82)",
   },
   wrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     height: 56,
     borderRadius: 18,
@@ -107,7 +109,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Colors.text,
   },
   inputDark: {
