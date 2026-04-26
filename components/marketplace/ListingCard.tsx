@@ -12,10 +12,10 @@ import { useRouter } from "expo-router";
 import Colors, { Shadows } from "@/constants/Colors";
 import type { Listing } from "@/types";
 import {
+  formatTransmissionLabel,
   formatMileage,
   formatRupiah,
   getListingImage,
-  getListingTitle,
   getListingTitleListing,
 } from "@/lib/utils";
 
@@ -36,6 +36,7 @@ export default function ListingCard({
   const imageUri = getListingImage(item.images);
   const variantName = item.variant?.name || "";
   const conditionLabel = item.condition === "baru" ? "Baru" : "Bekas";
+  const transmissionLabel = formatTransmissionLabel(item.transmission);
 
   if (variant === "horizontal") {
     return (
@@ -69,7 +70,7 @@ export default function ListingCard({
             {title}
           </Text>
           <Text style={styles.variant} numberOfLines={1}>
-            {variantName || item.transmission}
+            {variantName || transmissionLabel}
           </Text>
 
           <View style={styles.infoRow}>
@@ -77,7 +78,7 @@ export default function ListingCard({
               <Text style={styles.infoText}>{conditionLabel}</Text>
             </View>
             <View style={styles.infoPill}>
-              <Text style={styles.infoText}>{item.transmission}</Text>
+              <Text style={styles.infoText}>{transmissionLabel}</Text>
             </View>
           </View>
 

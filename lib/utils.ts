@@ -47,6 +47,46 @@ export function formatMileage(km: number): string {
   return `${km} km`;
 }
 
+export function normalizeTransmissionValue(
+  value: string | undefined | null,
+): "manual" | "matic" | "cvt" | "both" | undefined {
+  if (!value) return undefined;
+
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === "manual") return "manual";
+  if (
+    normalized === "matic" ||
+    normalized === "automatic" ||
+    normalized === "auto"
+  ) {
+    return "matic";
+  }
+  if (normalized === "cvt") return "cvt";
+  if (normalized === "both") return "both";
+
+  return undefined;
+}
+
+export function formatTransmissionLabel(
+  value: string | undefined | null,
+): string {
+  const normalized = normalizeTransmissionValue(value);
+
+  switch (normalized) {
+    case "manual":
+      return "Manual";
+    case "matic":
+      return "Matic";
+    case "cvt":
+      return "CVT";
+    case "both":
+      return "Manual dan Matic";
+    default:
+      return value?.trim() || "-";
+  }
+}
+
 /**
  * Get listing display title from backend Listing object
  */

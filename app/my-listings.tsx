@@ -22,6 +22,7 @@ import { useAuth } from "@/context/AuthContext";
 import { redirectToLogin } from "@/lib/auth/requireAuth";
 import {
   formatRupiah,
+  formatTransmissionLabel,
   getListingTitle,
   getListingImage,
   timeAgo,
@@ -162,6 +163,10 @@ export default function MyListingsScreen() {
   };
 
   const renderItem = ({ item }: { item: Listing }) => {
+    item = {
+      ...item,
+      transmission: formatTransmissionLabel(item.transmission),
+    };
     const title = getListingTitle(item);
     const imageUri = getListingImage(item.images);
 

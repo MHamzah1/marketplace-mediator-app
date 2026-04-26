@@ -24,6 +24,7 @@ import { fetchListings } from '@/lib/api/marketplaceService';
 import type { Brand, Listing, Pagination } from '@/types';
 
 type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'year_desc';
+type SearchTransmission = 'manual' | 'matic' | 'cvt';
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -40,7 +41,7 @@ export default function SearchScreen() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(params.brandId || null);
   const [selectedCondition, setSelectedCondition] = useState<string | null>(null);
-  const [selectedTransmission, setSelectedTransmission] = useState<string | null>(null);
+  const [selectedTransmission, setSelectedTransmission] = useState<SearchTransmission | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
@@ -118,7 +119,11 @@ export default function SearchScreen() {
     }
   }, [loadResults, loading, loadingMore, page, pagination]);
 
-  const transmissions = ['Automatic', 'Manual', 'CVT'];
+  const transmissions: { value: SearchTransmission; label: string }[] = [
+    { value: 'matic', label: 'Matic' },
+    { value: 'manual', label: 'Manual' },
+    { value: 'cvt', label: 'CVT' },
+  ];
   const sortOptions: { value: SortOption; label: string }[] = [
     { value: 'newest', label: 'Terbaru' },
     { value: 'price_asc', label: 'Harga Terendah' },
@@ -200,15 +205,15 @@ export default function SearchScreen() {
               </TouchableOpacity>
 
               {transmissions.map((option) => {
-                const active = selectedTransmission === option;
+                const active = selectedTransmission === option.value;
                 return (
                   <TouchableOpacity
-                    key={option}
+                    key={option.value}
                     style={[styles.modalChip, active && styles.modalChipActive]}
-                    onPress={() => setSelectedTransmission(option)}
+                    onPress={() => setSelectedTransmission(option.value)}
                   >
                     <Text style={[styles.modalChipText, active && styles.modalChipTextActive]}>
-                      {option}
+                      {option.label}
                     </Text>
                   </TouchableOpacity>
                 );

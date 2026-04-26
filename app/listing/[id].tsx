@@ -26,6 +26,7 @@ import {
   getWhatsAppLink,
 } from '@/lib/api/marketplaceService';
 import {
+  formatTransmissionLabel,
   formatMileage,
   formatRupiahFull,
   getListingTitle,
@@ -156,11 +157,12 @@ export default function ListingDetailScreen() {
   }
 
   const imageHeight = width * 0.72;
+  const transmissionLabel = formatTransmissionLabel(listing.transmission);
 
   const specs: { icon: IoniconsName; label: string; value: string }[] = [
     { icon: 'speedometer-outline', label: 'Kilometer', value: formatMileage(listing.mileage) },
     { icon: 'flash-outline', label: 'Bahan Bakar', value: listing.fuelType },
-    { icon: 'cog-outline', label: 'Transmisi', value: listing.transmission },
+    { icon: 'cog-outline', label: 'Transmisi', value: transmissionLabel },
     { icon: 'color-palette-outline', label: 'Warna', value: listing.color || '-' },
     { icon: 'eye-outline', label: 'Dilihat', value: `${listing.viewCount} kali` },
     { icon: 'calendar-outline', label: 'Tahun', value: `${listing.year}` },
@@ -303,7 +305,7 @@ export default function ListingDetailScreen() {
               </Text>
             </View>
             <View style={styles.metaPill}>
-              <Text style={styles.metaPillText}>{listing.transmission}</Text>
+              <Text style={styles.metaPillText}>{transmissionLabel}</Text>
             </View>
           </View>
 

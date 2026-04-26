@@ -31,6 +31,7 @@ import {
   updateListing,
   fetchMyListingDetail,
 } from '@/lib/api/marketplaceService';
+import { normalizeTransmissionValue } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { redirectToLogin } from '@/lib/auth/requireAuth';
 import type { YearPriceOption } from '@/types';
@@ -39,6 +40,8 @@ interface SelectOption {
   id: string;
   label: string;
 }
+
+type ListingTransmissionValue = 'manual' | 'matic' | 'cvt';
 
 export default function CreateListingScreen() {
   const router = useRouter();
@@ -70,7 +73,7 @@ export default function CreateListingScreen() {
   const [yearPriceId, setYearPriceId] = useState('');
   const [price, setPrice] = useState('');
   const [mileage, setMileage] = useState('');
-  const [transmission, setTransmission] = useState('Automatic');
+  const [transmission, setTransmission] = useState<ListingTransmissionValue>('matic');
   const [fuelType, setFuelType] = useState('Bensin');
   const [color, setColor] = useState('');
   const [locationCity, setLocationCity] = useState('');
@@ -178,7 +181,14 @@ export default function CreateListingScreen() {
         setSelectedBrand(listing.carModel?.brand?.id || '');
         setPrice(String(listing.price));
         setMileage(String(listing.mileage));
-        setTransmission(listing.transmission);
+        const normalizedTransmission = normalizeTransmissionValue(
+          listing.transmission,
+        );
+        setTransmission(
+          normalizedTransmission === 'manual' || normalizedTransmission === 'cvt'
+            ? normalizedTransmission
+            : 'matic',
+        );
         setFuelType(listing.fuelType);
         setColor(listing.color);
         setLocationCity(listing.locationCity);
@@ -392,7 +402,11 @@ export default function CreateListingScreen() {
     }
   };
 
-  const transmissionOptions = ['Automatic', 'Manual', 'CVT'];
+  const transmissionOptions: { value: ListingTransmissionValue; label: string }[] = [
+    { value: 'matic', label: 'Matic' },
+    { value: 'manual', label: 'Manual' },
+    { value: 'cvt', label: 'CVT' },
+  ];
   const fuelOptions = ['Bensin', 'Diesel', 'Listrik', 'Hybrid'];
   const conditionOptions = [
     { value: 'baru', label: 'Baru' },
@@ -552,11 +566,18 @@ export default function CreateListingScreen() {
           <View style={styles.chipRow}>
             {transmissionOptions.map((t) => (
               <TouchableOpacity
-                key={t}
-                style={[styles.chip, transmission === t && styles.chipActive]}
-                onPress={() => setTransmission(t)}
+                key={t.value}
+                style={[styles.chip, transmission === t.value && styles.chipActive]}
+                onPress={() => setTransmission(t.value)}
               >
-                <Text style={[styles.chipText, transmission === t && styles.chipTextActive]}>{t}</Text>
+                <Text
+                  style={[
+                    styles.chipText,
+                    transmission === t.value && styles.chipTextActive,
+                  ]}
+                >
+                  {t.label}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
