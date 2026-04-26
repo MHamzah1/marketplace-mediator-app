@@ -23,7 +23,10 @@ export async function getCalculatorBrands(params?: {
   search?: string;
 }): Promise<PaginatedResponse<CalculatorBrandOption>> {
   const response = await axiosInstance.get("/price-calculator/brands", {
-    params,
+    params: {
+      isActive: true,
+      ...params,
+    },
   });
   return response.data;
 }
@@ -35,7 +38,10 @@ export async function getCalculatorModels(params?: {
   search?: string;
 }): Promise<PaginatedResponse<CalculatorModelOption>> {
   const response = await axiosInstance.get("/price-calculator/models", {
-    params,
+    params: {
+      isActive: true,
+      ...params,
+    },
   });
   return response.data;
 }
@@ -47,7 +53,10 @@ export async function getCalculatorVariants(params?: {
   search?: string;
 }): Promise<PaginatedResponse<CalculatorVariantOption>> {
   const response = await axiosInstance.get("/price-calculator/variants", {
-    params,
+    params: {
+      isActive: true,
+      ...params,
+    },
   });
   return response.data;
 }
@@ -61,7 +70,10 @@ export async function getCalculatorYearPrices(params?: {
   year?: number;
 }): Promise<PaginatedResponse<CalculatorYearPriceOption>> {
   const response = await axiosInstance.get("/price-calculator/year-prices", {
-    params,
+    params: {
+      isActive: true,
+      ...params,
+    },
   });
   return response.data;
 }
