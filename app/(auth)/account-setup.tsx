@@ -22,6 +22,7 @@ export default function AccountSetupScreen() {
   const params = useLocalSearchParams<{
     fullName?: string;
     email?: string;
+    phoneNumber?: string;
     redirectTo?: string;
     reason?: 'whatsapp' | 'sell' | 'manage-listings' | 'protected';
   }>();
@@ -30,7 +31,7 @@ export default function AccountSetupScreen() {
   const [nickName, setNickName] = useState(params.fullName?.split(' ')[0] || '');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [email, setEmail] = useState(params.email || '');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(params.phoneNumber || '');
   const [gender, setGender] = useState<'Male' | 'Female'>('Male');
 
   return (

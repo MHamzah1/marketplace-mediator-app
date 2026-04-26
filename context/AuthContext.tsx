@@ -21,7 +21,7 @@ interface AuthContextType extends AuthState {
     fullName: string;
     email: string;
     password: string;
-    phoneNumber?: string;
+    phoneNumber: string;
   }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     fullName: string;
     email: string;
     password: string;
-    phoneNumber?: string;
+    phoneNumber: string;
   }) => {
     await axiosInstance.post("/auth/register", data);
   };
