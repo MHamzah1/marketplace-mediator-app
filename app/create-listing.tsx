@@ -11,6 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { isAxiosError } from 'axios';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -106,6 +107,22 @@ export default function CreateListingScreen() {
     }
 
     return digits;
+  };
+
+  const extractApiErrorMessage = (error: unknown) => {
+    if (isAxiosError(error)) {
+      const apiMessage = error.response?.data?.message;
+
+      if (Array.isArray(apiMessage)) {
+        return apiMessage.join('\n');
+      }
+
+      if (typeof apiMessage === 'string') {
+        return apiMessage;
+      }
+    }
+
+    return error instanceof Error ? error.message : 'Gagal menyimpan listing';
   };
 
   useEffect(() => {
@@ -298,14 +315,38 @@ export default function CreateListingScreen() {
 
   const handleSubmit = async () => {
     const normalizedWhatsapp = normalizeWhatsappNumber(sellerWhatsapp);
+    const trimmedColor = color.trim();
+    const trimmedLocationCity = locationCity.trim();
+    const trimmedLocationProvince = locationProvince.trim();
+    const trimmedDescription = description.trim();
 
-    if (!selectedVariant || !yearPriceId || !price || !mileage || !locationCity || !normalizedWhatsapp) {
-      Alert.alert('Data Belum Lengkap', 'Mohon lengkapi semua data yang diperlukan');
+    if (
+      !selectedVariant ||
+      !yearPriceId ||
+      !price ||
+      !mileage ||
+      !trimmedColor ||
+      !trimmedLocationCity ||
+      !trimmedLocationProvince ||
+      !normalizedWhatsapp
+    ) {
+      Alert.alert(
+        'Data Belum Lengkap',
+        'Mohon lengkapi varian, harga, kilometer, warna, kota, provinsi, dan nomor WhatsApp.',
+      );
       return;
     }
 
     if (!/^628\d{8,13}$/.test(normalizedWhatsapp)) {
       Alert.alert('Nomor WhatsApp Tidak Valid', 'Gunakan nomor WhatsApp aktif dengan format 628xxxxxxxxx.');
+      return;
+    }
+
+    if (trimmedDescription.length < 50) {
+      Alert.alert(
+        'Deskripsi Terlalu Singkat',
+        'Deskripsi listing minimal 50 karakter agar sesuai validasi backend.',
+      );
       return;
     }
 
@@ -322,10 +363,10 @@ export default function CreateListingScreen() {
         mileage,
         transmission,
         fuelType,
-        color,
-        locationCity,
-        locationProvince,
-        description,
+        color: trimmedColor,
+        locationCity: trimmedLocationCity,
+        locationProvince: trimmedLocationProvince,
+        description: trimmedDescription,
         condition,
         sellerWhatsapp: normalizedWhatsapp,
       };
@@ -344,7 +385,7 @@ export default function CreateListingScreen() {
         ]);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Gagal menyimpan listing';
+      const msg = extractApiErrorMessage(err);
       Alert.alert('Error', msg);
     } finally {
       setSubmitting(false);
@@ -567,7 +608,7 @@ export default function CreateListingScreen() {
             <Text style={styles.inputSuffix}>km</Text>
           </View>
 
-          <Text style={styles.fieldLabel}>Warna</Text>
+          <Text style={styles.fieldLabel}>Warna *</Text>
           <TextInput
             style={styles.inputFull}
             value={color}
@@ -585,7 +626,7 @@ export default function CreateListingScreen() {
             placeholderTextColor={Colors.textTertiary}
           />
 
-          <Text style={styles.fieldLabel}>Provinsi</Text>
+          <Text style={styles.fieldLabel}>Provinsi *</Text>
           <TextInput
             style={styles.inputFull}
             value={locationProvince}
@@ -604,12 +645,12 @@ export default function CreateListingScreen() {
             keyboardType="phone-pad"
           />
 
-          <Text style={styles.fieldLabel}>Deskripsi</Text>
+          <Text style={styles.fieldLabel}>Deskripsi * ({description.trim().length}/50)</Text>
           <TextInput
             style={[styles.inputFull, styles.textArea]}
             value={description}
             onChangeText={setDescription}
-            placeholder="Deskripsikan kondisi dan fitur mobil Anda..."
+            placeholder="Deskripsikan kondisi dan fitur mobil Anda minimal 50 karakter..."
             placeholderTextColor={Colors.textTertiary}
             multiline
             numberOfLines={5}
