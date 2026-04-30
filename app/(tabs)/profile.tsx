@@ -35,6 +35,12 @@ export default function ProfileScreen() {
   const { user, isLoggedIn, logout } = useAuth();
   const { isDark, toggle: toggleTheme } = useTheme();
   const profilePhotoUri = resolveImageUrl(user?.profilePhoto || user?.profileImage);
+  const [avatarLoadFailed, setAvatarLoadFailed] = React.useState(false);
+  const showProfilePhoto = Boolean(profilePhotoUri && !avatarLoadFailed);
+
+  React.useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [profilePhotoUri]);
 
   const handleLogout = () => {
     Alert.alert('Keluar', 'Apakah Anda yakin ingin keluar?', [
@@ -159,11 +165,12 @@ export default function ProfileScreen() {
             <View style={styles.profileInfo}>
               <View style={styles.avatarContainer}>
                 <View style={styles.avatar}>
-                  {profilePhotoUri ? (
+                  {showProfilePhoto ? (
                     <Image
                       source={{ uri: profilePhotoUri }}
                       style={styles.avatarImage}
                       contentFit="cover"
+                      onError={() => setAvatarLoadFailed(true)}
                     />
                   ) : (
                     <Text style={styles.avatarText}>

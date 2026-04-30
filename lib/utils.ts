@@ -9,11 +9,48 @@ export function resolveImageUrl(
   path: string | undefined | null,
 ): string | undefined {
   if (!path) return undefined;
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+
+  const trimmedPath = path.trim();
+  if (
+    !trimmedPath ||
+    trimmedPath === "null" ||
+    trimmedPath === "undefined"
+  ) {
+    return undefined;
+  }
+
+  if (
+    trimmedPath.startsWith("file:") ||
+    trimmedPath.startsWith("content:") ||
+    trimmedPath.startsWith("data:")
+  ) {
+    return trimmedPath;
+  }
 
   // Remove /api from the end of base URL to get server root
   const serverRoot = API_BASE_URL.replace(/\/api\/?$/, "");
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+
+  if (
+    trimmedPath.startsWith("http://") ||
+    trimmedPath.startsWith("https://")
+  ) {
+    try {
+      const imageUrl = new URL(trimmedPath);
+      const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(
+        imageUrl.hostname,
+      );
+
+      if (!isLocalhost) return trimmedPath;
+
+      return new URL(`${imageUrl.pathname}${imageUrl.search}`, serverRoot)
+        .toString()
+        .replace(/\/$/, "");
+    } catch {
+      return trimmedPath;
+    }
+  }
+
+  const cleanPath = trimmedPath.startsWith("/") ? trimmedPath : `/${trimmedPath}`;
   return `${serverRoot}${cleanPath}`;
 }
 

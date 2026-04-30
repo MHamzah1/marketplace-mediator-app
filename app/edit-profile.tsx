@@ -153,6 +153,7 @@ export default function EditProfileScreen() {
   const [profilePhoto, setProfilePhoto] = useState<ProfilePhotoUpload | null>(
     null,
   );
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(DEFAULT_BIRTH_MONTH);
@@ -194,6 +195,11 @@ export default function EditProfileScreen() {
   );
 
   const previewPhotoUri = profilePhoto?.uri || existingPhotoUri;
+  const showAvatarImage = Boolean(previewPhotoUri && !avatarLoadFailed);
+
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [previewPhotoUri]);
 
   const calendarInitialDate = useMemo(
     () => toCalendarMonthDate(calendarMonth),
@@ -397,11 +403,12 @@ export default function EditProfileScreen() {
             onPress={pickProfilePhoto}
           >
             <View style={styles.avatarCircle}>
-              {previewPhotoUri ? (
+              {showAvatarImage ? (
                 <Image
                   source={{ uri: previewPhotoUri }}
                   style={styles.avatarImage}
                   contentFit="cover"
+                  onError={() => setAvatarLoadFailed(true)}
                 />
               ) : (
                 <Text style={styles.avatarText}>
