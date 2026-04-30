@@ -52,6 +52,15 @@ function resolveApiBaseUrl() {
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
+export const GOOGLE_AUTH_CONFIG = {
+  webClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() || undefined,
+  androidClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim() || undefined,
+  iosClientId:
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim() || undefined,
+};
+
 export const APP_CONFIG = {
   name: "Mediator",
   tagline: "Marketplace Mobil Terpercaya",

@@ -21,6 +21,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogleIdToken: (idToken: string) => Promise<void>;
   completeMarketplaceRegistration: (
     data: CompleteMarketplaceRegistrationPayload,
   ) => Promise<void>;
@@ -62,12 +63,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loadUser();
   }, [loadUser]);
 
-  const login = async (email: string, password: string) => {
-    const response = await axiosInstance.post("/auth/login", {
-      email,
-      password,
-    });
-    const payload = response.data?.data ?? response.data;
+  const applyAuthPayload = async (payload: {
+    accessToken?: string;
+    access_token?: string;
+    user?: User;
+  }) => {
     const accessToken = payload?.accessToken || payload?.access_token;
 
     if (!accessToken) {
@@ -76,11 +76,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     await SecureStore.setItemAsync("accessToken", accessToken);
 
-    // Fetch user profile after login
-    const profileRes = await axiosInstance.get("/users/profile");
-    const userData = profileRes.data?.data ?? profileRes.data;
+    let userData: User | undefined;
+
+    try {
+      const profileRes = await axiosInstance.get("/users/profile");
+      userData = profileRes.data?.data ?? profileRes.data;
+    } catch (error) {
+      if (payload.user) {
+        userData = payload.user;
+      } else {
+        throw error;
+      }
+    }
+
+    if (!userData) {
+      throw new Error("Server tidak mengembalikan data user");
+    }
 
     setState({ user: userData, isLoggedIn: true, loading: false });
+  };
+
+  const login = async (email: string, password: string) => {
+    const response = await axiosInstance.post("/auth/login", {
+      email,
+      password,
+    });
+    const payload = response.data?.data ?? response.data;
+
+    await applyAuthPayload(payload);
+  };
+
+  const loginWithGoogleIdToken = async (idToken: string) => {
+    const response = await axiosInstance.post("/auth/google", { idToken });
+    const payload = response.data?.data ?? response.data;
+
+    await applyAuthPayload(payload);
   };
 
   const completeRegistration = async (
@@ -88,18 +118,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ) => {
     const response = await completeMarketplaceRegistration(data);
     const payload = "data" in response ? response.data : response;
-    const legacyPayload = payload as typeof payload & { access_token?: string };
-    const accessToken = legacyPayload?.accessToken || legacyPayload?.access_token;
 
-    if (!accessToken) {
-      throw new Error("Server tidak mengembalikan access token");
-    }
-
-    await SecureStore.setItemAsync("accessToken", accessToken);
-
-    const profileRes = await axiosInstance.get("/users/profile");
-    const userData = profileRes.data?.data ?? profileRes.data;
-    setState({ user: userData, isLoggedIn: true, loading: false });
+    await applyAuthPayload(payload);
   };
 
   const logout = async () => {
@@ -115,6 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         ...state,
         login,
+        loginWithGoogleIdToken,
         completeMarketplaceRegistration: completeRegistration,
         logout,
         refreshUser: loadUser,

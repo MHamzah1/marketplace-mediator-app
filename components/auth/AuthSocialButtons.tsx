@@ -5,6 +5,7 @@ import Colors from "@/constants/Colors";
 
 interface AuthSocialButtonsProps {
   dark?: boolean;
+  disabled?: boolean;
   onPress: (provider: "facebook" | "google" | "apple") => void;
 }
 
@@ -20,6 +21,7 @@ const providers = [
 
 export default function AuthSocialButtons({
   dark = false,
+  disabled = false,
   onPress,
 }: AuthSocialButtonsProps) {
   return (
@@ -28,8 +30,13 @@ export default function AuthSocialButtons({
         <TouchableOpacity
           key={provider.key}
           activeOpacity={0.82}
+          disabled={disabled}
           onPress={() => onPress(provider.key)}
-          style={[styles.button, dark ? styles.buttonDark : styles.buttonLight]}
+          style={[
+            styles.button,
+            dark ? styles.buttonDark : styles.buttonLight,
+            disabled && styles.buttonDisabled,
+          ]}
         >
           <Ionicons
             name={provider.icon}
@@ -65,5 +72,8 @@ const styles = StyleSheet.create({
   buttonDark: {
     backgroundColor: Colors.inputFillDark,
     borderColor: Colors.primaryLight,
+  },
+  buttonDisabled: {
+    opacity: 0.55,
   },
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   Alert,
   StyleSheet,
@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AuthActionButton from '@/components/auth/AuthActionButton';
 import AuthSocialButtons from '@/components/auth/AuthSocialButtons';
 import Colors from '@/constants/Colors';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 const reasonMessages = {
   whatsapp: 'Masuk dulu untuk menghubungi penjual via WhatsApp.',
@@ -30,8 +31,26 @@ export default function LoginScreen() {
   }>();
 
   const reasonMessage = reasonMessages[reason || 'protected'];
+  const targetRoute =
+    typeof redirectTo === 'string' && redirectTo.length > 0
+      ? redirectTo
+      : '/(tabs)/marketplace';
+
+  const handleGoogleSuccess = useCallback(() => {
+    router.replace(targetRoute as never);
+  }, [router, targetRoute]);
+
+  const { loading: googleLoading, startGoogleAuth } = useGoogleAuth({
+    action: 'Masuk',
+    onSuccess: handleGoogleSuccess,
+  });
 
   const handleSocialPress = (provider: 'facebook' | 'google' | 'apple') => {
+    if (provider === 'google') {
+      startGoogleAuth();
+      return;
+    }
+
     Alert.alert(
       'Segera Hadir',
       `Masuk dengan ${provider} akan kami aktifkan di tahap berikutnya.`,
@@ -63,7 +82,10 @@ export default function LoginScreen() {
         <Text style={styles.subtitle}>{reasonMessage}</Text>
 
         <View style={styles.socialSection}>
-          <AuthSocialButtons onPress={handleSocialPress} />
+          <AuthSocialButtons
+            disabled={googleLoading}
+            onPress={handleSocialPress}
+          />
         </View>
 
         <View style={styles.dividerRow}>

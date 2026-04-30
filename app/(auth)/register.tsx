@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -26,6 +26,7 @@ import {
   clearPendingRegistration,
   mergePendingRegistration,
 } from "@/lib/auth/pendingRegistration";
+import { useGoogleAuth } from "@/hooks/useGoogleAuth";
 
 type RegisterStep = "email" | "otp" | "password";
 
@@ -46,6 +47,20 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
 
   const normalizedEmail = email.trim().toLowerCase();
+  const targetRoute =
+    typeof redirectTo === "string" && redirectTo.length > 0
+      ? redirectTo
+      : "/(tabs)/marketplace";
+
+  const handleGoogleSuccess = useCallback(() => {
+    void clearPendingRegistration();
+    router.replace(targetRoute as never);
+  }, [router, targetRoute]);
+
+  const { loading: googleLoading, startGoogleAuth } = useGoogleAuth({
+    action: "Daftar",
+    onSuccess: handleGoogleSuccess,
+  });
 
   const extractApiErrorMessage = (error: unknown) => {
     if (isAxiosError(error)) {
@@ -66,6 +81,11 @@ export default function RegisterScreen() {
   };
 
   const handleSocialPress = (provider: "facebook" | "google" | "apple") => {
+    if (provider === "google") {
+      startGoogleAuth();
+      return;
+    }
+
     Alert.alert(
       "Segera Hadir",
       `Daftar dengan ${provider} akan kami aktifkan di tahap berikutnya.`,
@@ -292,7 +312,10 @@ export default function RegisterScreen() {
                   <View style={styles.dividerLine} />
                 </View>
 
-                <AuthSocialButtons onPress={handleSocialPress} />
+                <AuthSocialButtons
+                  disabled={loading || googleLoading}
+                  onPress={handleSocialPress}
+                />
 
                 <View style={styles.footerRow}>
                   <Text style={styles.footerText}>Sudah punya akun?</Text>
