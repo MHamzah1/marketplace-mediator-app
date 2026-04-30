@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Calendar, LocaleConfig, type DateData } from 'react-native-calendars';
 import AuthActionButton from '@/components/auth/AuthActionButton';
 import AuthInputField from '@/components/auth/AuthInputField';
 import Colors, { Shadows } from '@/constants/Colors';
@@ -25,11 +26,72 @@ import {
   PendingRegistrationPhoto,
 } from '@/lib/auth/pendingRegistration';
 
+const MIN_BIRTH_YEAR = 1900;
+const TODAY = new Date();
+const MAX_BIRTH_DATE = toIsoDate(TODAY);
+const DEFAULT_BIRTH_MONTH = new Date(
+  TODAY.getFullYear() - 25,
+  TODAY.getMonth(),
+  1,
+);
+
+const MONTH_NAMES = [
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
+];
+
+LocaleConfig.locales.id = {
+  monthNames: MONTH_NAMES,
+  monthNamesShort: MONTH_NAMES.map((month) => month.slice(0, 3)),
+  dayNames: ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'],
+  dayNamesShort: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
+  today: 'Hari ini',
+};
+LocaleConfig.defaultLocale = 'id';
+
 function toIsoDate(date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function parseIsoDate(value: string) {
+  const [year, month, day] = value.split('-').map(Number);
+
+  if (!year || !month || !day) return null;
+
+  return new Date(year, month - 1, day);
+}
+
+function toCalendarMonthDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    '0',
+  )}-01`;
+}
+
+function getInitialCalendarMonth(value: string) {
+  const date = parseIsoDate(value);
+
+  if (!date) return DEFAULT_BIRTH_MONTH;
+
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function isAfterCurrentMonth(year: number, monthIndex: number) {
+  return year > TODAY.getFullYear()
+    || (year === TODAY.getFullYear() && monthIndex > TODAY.getMonth());
 }
 
 function formatDateLabel(value: string) {
@@ -72,7 +134,9 @@ export default function AccountSetupScreen() {
   const [profilePhoto, setProfilePhoto] =
     useState<PendingRegistrationPhoto | null>(null);
   const [calendarVisible, setCalendarVisible] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [calendarMonth, setCalendarMonth] = useState(DEFAULT_BIRTH_MONTH);
+  const [calendarMode, setCalendarMode] =
+    useState<'day' | 'month' | 'year'>('day');
 
   useEffect(() => {
     getPendingRegistration().then((pending) => {
@@ -86,23 +150,65 @@ export default function AccountSetupScreen() {
       setProfilePhoto(pending.profilePhoto || null);
 
       if (pending.dateOfBirth) {
-        setCalendarMonth(new Date(pending.dateOfBirth));
+        setCalendarMonth(getInitialCalendarMonth(pending.dateOfBirth));
       }
     });
   }, [params.email]);
 
-  const calendarDays = useMemo(() => {
-    const year = calendarMonth.getFullYear();
-    const month = calendarMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDate = new Date(year, month + 1, 0).getDate();
-    const blanks = Array.from({ length: firstDay.getDay() }, () => null);
-    const days = Array.from(
-      { length: lastDate },
-      (_, index) => new Date(year, month, index + 1),
-    );
-    return [...blanks, ...days];
-  }, [calendarMonth]);
+  const calendarInitialDate = useMemo(
+    () => toCalendarMonthDate(calendarMonth),
+    [calendarMonth],
+  );
+
+  const birthYears = useMemo(
+    () =>
+      Array.from(
+        { length: TODAY.getFullYear() - MIN_BIRTH_YEAR + 1 },
+        (_, index) => TODAY.getFullYear() - index,
+      ),
+    [],
+  );
+
+  const markedDates = useMemo(
+    () =>
+      dateOfBirth
+        ? {
+            [dateOfBirth]: {
+              selected: true,
+              selectedColor: Colors.primary,
+              selectedTextColor: Colors.white,
+            },
+          }
+        : {},
+    [dateOfBirth],
+  );
+
+  const calendarTheme = useMemo(
+    () => ({
+      calendarBackground: Colors.background,
+      textSectionTitleColor: Colors.textTertiary,
+      selectedDayBackgroundColor: Colors.primary,
+      selectedDayTextColor: Colors.white,
+      todayTextColor: Colors.primary,
+      dayTextColor: Colors.text,
+      monthTextColor: Colors.text,
+      arrowColor: Colors.text,
+      textDisabledColor: Colors.textTertiary,
+      textDayFontWeight: '700' as const,
+      textMonthFontWeight: '900' as const,
+      textDayHeaderFontWeight: '800' as const,
+      textDayFontSize: 15,
+      textMonthFontSize: 18,
+      textDayHeaderFontSize: 12,
+    }),
+    [],
+  );
+
+  const isAtMinCalendarMonth =
+    calendarMonth.getFullYear() === MIN_BIRTH_YEAR && calendarMonth.getMonth() === 0;
+  const isAtMaxCalendarMonth =
+    calendarMonth.getFullYear() === TODAY.getFullYear()
+    && calendarMonth.getMonth() >= TODAY.getMonth();
 
   const pickProfilePhoto = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -122,15 +228,40 @@ export default function AccountSetupScreen() {
     });
   };
 
-  const selectDate = (date: Date) => {
-    setDateOfBirth(toIsoDate(date));
-    setCalendarVisible(false);
+  const openBirthCalendar = () => {
+    setCalendarMonth(getInitialCalendarMonth(dateOfBirth));
+    setCalendarMode('day');
+    setCalendarVisible(true);
   };
 
-  const moveMonth = (delta: number) => {
+  const selectDate = (date: DateData) => {
+    setDateOfBirth(date.dateString);
+    setCalendarMonth(new Date(date.year, date.month - 1, 1));
+    setCalendarVisible(false);
+    setCalendarMode('day');
+  };
+
+  const selectMonth = (monthIndex: number) => {
+    if (isAfterCurrentMonth(calendarMonth.getFullYear(), monthIndex)) return;
+
     setCalendarMonth(
-      (current) => new Date(current.getFullYear(), current.getMonth() + delta, 1),
+      new Date(calendarMonth.getFullYear(), monthIndex, 1),
     );
+    setCalendarMode('day');
+  };
+
+  const selectYear = (year: number) => {
+    const month = Math.min(
+      calendarMonth.getMonth(),
+      year === TODAY.getFullYear() ? TODAY.getMonth() : 11,
+    );
+
+    setCalendarMonth(new Date(year, month, 1));
+    setCalendarMode('month');
+  };
+
+  const handleCalendarMonthChange = (date: DateData) => {
+    setCalendarMonth(new Date(date.year, date.month - 1, 1));
   };
 
   const handleContinue = async () => {
@@ -244,7 +375,7 @@ export default function AccountSetupScreen() {
               <TouchableOpacity
                 activeOpacity={0.84}
                 style={styles.dateButton}
-                onPress={() => setCalendarVisible(true)}
+                onPress={openBirthCalendar}
               >
                 <Ionicons
                   name="calendar-outline"
@@ -332,65 +463,147 @@ export default function AccountSetupScreen() {
               Shadows.large,
             ]}
           >
-            <View style={styles.calendarHeader}>
+            <View style={styles.calendarTopBar}>
+              <Text style={styles.calendarSheetTitle}>Tanggal Lahir</Text>
               <TouchableOpacity
-                style={styles.calendarIconButton}
-                onPress={() => moveMonth(-1)}
+                activeOpacity={0.82}
+                style={styles.calendarCloseButton}
+                onPress={() => setCalendarVisible(false)}
               >
-                <Ionicons name="chevron-back" size={20} color={Colors.text} />
-              </TouchableOpacity>
-              <Text style={styles.calendarTitle}>
-                {calendarMonth.toLocaleString('id-ID', {
-                  month: 'long',
-                  year: 'numeric',
-                })}
-              </Text>
-              <TouchableOpacity
-                style={styles.calendarIconButton}
-                onPress={() => moveMonth(1)}
-              >
-                <Ionicons name="chevron-forward" size={20} color={Colors.text} />
+                <Ionicons name="close" size={18} color={Colors.text} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.weekRow}>
-              {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((day) => (
-                <Text key={day} style={styles.weekText}>
-                  {day}
-                </Text>
-              ))}
-            </View>
-
-            <View style={styles.dayGrid}>
-              {calendarDays.map((day, index) => {
-                const active = day ? toIsoDate(day) === dateOfBirth : false;
-                return (
-                  <TouchableOpacity
-                    key={day ? toIsoDate(day) : `blank-${index}`}
-                    disabled={!day}
-                    activeOpacity={0.82}
-                    onPress={() => day && selectDate(day)}
-                    style={[
-                      styles.dayButton,
-                      active && styles.dayButtonActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.dayText,
-                        active && styles.dayTextActive,
-                      ]}
+            {calendarMode === 'day' ? (
+              <Calendar
+                initialDate={calendarInitialDate}
+                minDate={`${MIN_BIRTH_YEAR}-01-01`}
+                maxDate={MAX_BIRTH_DATE}
+                firstDay={1}
+                hideExtraDays
+                enableSwipeMonths
+                disableArrowLeft={isAtMinCalendarMonth}
+                disableArrowRight={isAtMaxCalendarMonth}
+                disableAllTouchEventsForDisabledDays
+                markedDates={markedDates}
+                onDayPress={selectDate}
+                onMonthChange={handleCalendarMonthChange}
+                renderArrow={(direction) => (
+                  <Ionicons
+                    name={direction === 'left' ? 'chevron-back' : 'chevron-forward'}
+                    size={20}
+                    color={Colors.text}
+                  />
+                )}
+                renderHeader={() => (
+                  <View style={styles.calendarTitleRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.82}
+                      style={styles.calendarTitleButton}
+                      onPress={() => setCalendarMode('month')}
                     >
-                      {day ? day.getDate() : ''}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                      <Text style={styles.calendarTitleText}>
+                        {MONTH_NAMES[calendarMonth.getMonth()]}
+                      </Text>
+                      <Ionicons
+                        name="chevron-down"
+                        size={14}
+                        color={Colors.textTertiary}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.82}
+                      style={styles.calendarTitleButton}
+                      onPress={() => setCalendarMode('year')}
+                    >
+                      <Text style={styles.calendarTitleText}>
+                        {calendarMonth.getFullYear()}
+                      </Text>
+                      <Ionicons
+                        name="chevron-down"
+                        size={14}
+                        color={Colors.textTertiary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                theme={calendarTheme}
+                style={styles.nativeCalendar}
+              />
+            ) : calendarMode === 'month' ? (
+              <View style={styles.monthGrid}>
+                {MONTH_NAMES.map((monthName, index) => {
+                  const active = index === calendarMonth.getMonth();
+                  const disabled = isAfterCurrentMonth(
+                    calendarMonth.getFullYear(),
+                    index,
+                  );
+
+                  return (
+                    <TouchableOpacity
+                      key={monthName}
+                      activeOpacity={0.82}
+                      disabled={disabled}
+                      style={[
+                        styles.pickerTile,
+                        active && styles.pickerTileActive,
+                        disabled && styles.pickerTileDisabled,
+                      ]}
+                      onPress={() => selectMonth(index)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerTileText,
+                          active && styles.pickerTileTextActive,
+                          disabled && styles.pickerTileTextDisabled,
+                        ]}
+                      >
+                        {monthName.slice(0, 3)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : (
+              <ScrollView
+                style={styles.yearList}
+                contentContainerStyle={styles.yearGrid}
+                showsVerticalScrollIndicator={false}
+              >
+                {birthYears.map((year) => {
+                  const active = year === calendarMonth.getFullYear();
+
+                  return (
+                    <TouchableOpacity
+                      key={year}
+                      activeOpacity={0.82}
+                      style={[
+                        styles.pickerTile,
+                        active && styles.pickerTileActive,
+                      ]}
+                      onPress={() => selectYear(year)}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerTileText,
+                          active && styles.pickerTileTextActive,
+                        ]}
+                      >
+                        {year}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
 
             <AuthActionButton
-              label="Tutup"
-              onPress={() => setCalendarVisible(false)}
+              label={calendarMode === 'day' ? 'Tutup' : 'Kembali'}
+              onPress={() =>
+                calendarMode === 'day'
+                  ? setCalendarVisible(false)
+                  : setCalendarMode('day')
+              }
               variant="light"
             />
           </View>
@@ -530,56 +743,91 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     gap: 16,
   },
-  calendarHeader: {
+  calendarTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  calendarIconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+  calendarSheetTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Colors.text,
+  },
+  calendarCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.backgroundSecondary,
   },
-  calendarTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Colors.text,
-    textTransform: 'capitalize',
+  nativeCalendar: {
+    borderRadius: 18,
+    overflow: 'hidden',
   },
-  weekRow: {
+  calendarTitleRow: {
     flexDirection: 'row',
-  },
-  weekText: {
-    width: `${100 / 7}%`,
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '800',
-    color: Colors.textTertiary,
-  },
-  dayGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: 8,
-  },
-  dayButton: {
-    width: `${100 / 7}%`,
-    height: 42,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   },
-  dayButtonActive: {
-    backgroundColor: Colors.primary,
+  calendarTitleButton: {
+    minWidth: 92,
+    height: 38,
     borderRadius: 14,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: Colors.backgroundSecondary,
   },
-  dayText: {
-    fontSize: 14,
+  calendarTitleText: {
+    fontSize: 15,
     fontWeight: '800',
     color: Colors.text,
   },
-  dayTextActive: {
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingVertical: 2,
+  },
+  yearList: {
+    maxHeight: 302,
+  },
+  yearGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingBottom: 2,
+  },
+  pickerTile: {
+    width: '31%',
+    minHeight: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.inputFill,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  pickerTileActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  pickerTileDisabled: {
+    opacity: 0.42,
+  },
+  pickerTileText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.textSecondary,
+  },
+  pickerTileTextActive: {
     color: Colors.white,
+  },
+  pickerTileTextDisabled: {
+    color: Colors.textTertiary,
   },
 });
