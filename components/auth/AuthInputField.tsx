@@ -24,6 +24,7 @@ interface AuthInputFieldProps {
   autoComplete?: React.ComponentProps<typeof TextInput>["autoComplete"];
   autoCapitalize?: React.ComponentProps<typeof TextInput>["autoCapitalize"];
   editable?: boolean;
+  maxLength?: number;
 }
 
 export default function AuthInputField({
@@ -39,6 +40,7 @@ export default function AuthInputField({
   autoComplete,
   autoCapitalize = "none",
   editable = true,
+  maxLength,
 }: AuthInputFieldProps) {
   return (
     <View style={styles.field}>
@@ -64,6 +66,7 @@ export default function AuthInputField({
           autoComplete={autoComplete}
           autoCapitalize={autoCapitalize}
           editable={editable}
+          maxLength={maxLength}
         />
         {onToggleSecure ? (
           <TouchableOpacity onPress={onToggleSecure}>

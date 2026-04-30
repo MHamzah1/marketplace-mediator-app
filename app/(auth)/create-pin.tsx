@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AuthActionButton from '@/components/auth/AuthActionButton';
 import { useTheme } from '@/context/ThemeContext';
+import { mergePendingRegistration } from '@/lib/auth/pendingRegistration';
 
 export default function CreatePinScreen() {
   const router = useRouter();
@@ -40,6 +42,22 @@ export default function CreatePinScreen() {
   };
 
   const isComplete = digits.every(Boolean);
+  const handleContinue = async () => {
+    if (!isComplete) return;
+
+    try {
+      await mergePendingRegistration({ pin: digits.join('') });
+      router.push({
+        pathname: '/(auth)/set-fingerprint',
+        params: {
+          redirectTo: params.redirectTo,
+          reason: params.reason,
+        },
+      });
+    } catch {
+      Alert.alert('PIN Gagal Disimpan', 'Silakan coba beberapa saat lagi.');
+    }
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -77,7 +95,7 @@ export default function CreatePinScreen() {
                   color: colors.text,
                 },
               ]}
-              value={showPin ? digit : digit ? '•' : ''}
+              value={showPin ? digit : digit ? '*' : ''}
               onChangeText={(value) => handleChange(value, index)}
               onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
               keyboardType="number-pad"
@@ -104,15 +122,7 @@ export default function CreatePinScreen() {
         <AuthActionButton
           label="Continue"
           disabled={!isComplete}
-          onPress={() =>
-            router.push({
-              pathname: '/(auth)/set-fingerprint',
-              params: {
-                redirectTo: params.redirectTo,
-                reason: params.reason,
-              },
-            })
-          }
+          onPress={handleContinue}
           variant="dark"
         />
       </View>

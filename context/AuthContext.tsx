@@ -8,6 +8,10 @@ import React, {
 import axiosInstance from "@/lib/api/axiosInstance";
 import * as SecureStore from "expo-secure-store";
 import type { User } from "@/types";
+import {
+  completeMarketplaceRegistration,
+  CompleteMarketplaceRegistrationPayload,
+} from "@/lib/api/authRegistrationService";
 
 interface AuthState {
   user: User | null;
@@ -17,12 +21,9 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
-  register: (data: {
-    fullName: string;
-    email: string;
-    password: string;
-    phoneNumber: string;
-  }) => Promise<void>;
+  completeMarketplaceRegistration: (
+    data: CompleteMarketplaceRegistrationPayload,
+  ) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -82,13 +83,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setState({ user: userData, isLoggedIn: true, loading: false });
   };
 
-  const register = async (data: {
-    fullName: string;
-    email: string;
-    password: string;
-    phoneNumber: string;
-  }) => {
-    await axiosInstance.post("/auth/register", data);
+  const completeRegistration = async (
+    data: CompleteMarketplaceRegistrationPayload,
+  ) => {
+    const response = await completeMarketplaceRegistration(data);
+    const payload = "data" in response ? response.data : response;
+    const legacyPayload = payload as typeof payload & { access_token?: string };
+    const accessToken = legacyPayload?.accessToken || legacyPayload?.access_token;
+
+    if (!accessToken) {
+      throw new Error("Server tidak mengembalikan access token");
+    }
+
+    await SecureStore.setItemAsync("accessToken", accessToken);
+
+    const profileRes = await axiosInstance.get("/users/profile");
+    const userData = profileRes.data?.data ?? profileRes.data;
+    setState({ user: userData, isLoggedIn: true, loading: false });
   };
 
   const logout = async () => {
@@ -101,7 +112,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <AuthContext.Provider
-      value={{ ...state, login, register, logout, refreshUser: loadUser }}
+      value={{
+        ...state,
+        login,
+        completeMarketplaceRegistration: completeRegistration,
+        logout,
+        refreshUser: loadUser,
+      }}
     >
       {children}
     </AuthContext.Provider>

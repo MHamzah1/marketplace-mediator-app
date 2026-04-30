@@ -15,51 +15,37 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AuthActionButton from "@/components/auth/AuthActionButton";
-import AuthCheckbox from "@/components/auth/AuthCheckbox";
 import AuthInputField from "@/components/auth/AuthInputField";
 import AuthSocialButtons from "@/components/auth/AuthSocialButtons";
 import Colors from "@/constants/Colors";
-import { useAuth } from "@/context/AuthContext";
+import {
+  requestRegisterEmail,
+  verifyRegisterOtp,
+} from "@/lib/api/authRegistrationService";
+import {
+  clearPendingRegistration,
+  mergePendingRegistration,
+} from "@/lib/auth/pendingRegistration";
+
+type RegisterStep = "email" | "otp" | "password";
 
 export default function RegisterScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { register } = useAuth();
   const { redirectTo, reason } = useLocalSearchParams<{
     redirectTo?: string;
     reason?: "whatsapp" | "sell" | "manage-listings" | "protected";
   }>();
 
-  const [fullName, setFullName] = useState("");
+  const [step, setStep] = useState<RegisterStep>("email");
   const [email, setEmail] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  const normalizePhoneNumber = (value: string) => {
-    const digits = value.replace(/\D/g, "");
-
-    if (!digits) {
-      return "";
-    }
-
-    if (digits.startsWith("62")) {
-      return `+${digits}`;
-    }
-
-    if (digits.startsWith("0")) {
-      return `+62${digits.slice(1)}`;
-    }
-
-    if (digits.startsWith("8")) {
-      return `+62${digits}`;
-    }
-
-    return value.trim();
-  };
+  const normalizedEmail = email.trim().toLowerCase();
 
   const extractApiErrorMessage = (error: unknown) => {
     if (isAxiosError(error)) {
@@ -86,32 +72,57 @@ export default function RegisterScreen() {
     );
   };
 
-  const handleRegister = async () => {
-    if (
-      !fullName.trim() ||
-      !email.trim() ||
-      !phoneNumber.trim() ||
-      !password.trim()
-    ) {
-      Alert.alert(
-        "Data Belum Lengkap",
-        "Mohon isi nama, email, nomor telepon, dan password.",
-      );
+  const requestOtp = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      Alert.alert("Email Tidak Valid", "Masukkan email aktif Anda.");
       return;
     }
 
+    try {
+      setLoading(true);
+      await clearPendingRegistration();
+      const response = await requestRegisterEmail(normalizedEmail);
+      setStep("otp");
+
+      if (response.devOtp) {
+        Alert.alert(
+          "OTP Development",
+          `SMTP belum aktif. Gunakan OTP berikut untuk testing: ${response.devOtp}`,
+        );
+      } else {
+        Alert.alert("OTP Terkirim", "Cek email Anda untuk kode OTP.");
+      }
+    } catch (error: unknown) {
+      Alert.alert("Gagal Mengirim OTP", extractApiErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!/^\d{6}$/.test(otp)) {
+      Alert.alert("OTP Tidak Valid", "Masukkan 6 digit kode OTP dari email.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await verifyRegisterOtp(normalizedEmail, otp);
+      await mergePendingRegistration({
+        email: normalizedEmail,
+        verificationToken: response.verificationToken,
+      });
+      setStep("password");
+    } catch (error: unknown) {
+      Alert.alert("Verifikasi Gagal", extractApiErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const savePasswordAndContinue = async () => {
     if (password !== confirmPassword) {
       Alert.alert("Password Tidak Cocok", "Ulangi konfirmasi password Anda.");
-      return;
-    }
-
-    const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
-
-    if (!/^\+628\d{8,13}$/.test(normalizedPhoneNumber)) {
-      Alert.alert(
-        "Nomor Telepon Tidak Valid",
-        "Gunakan nomor Indonesia aktif dengan format 08xxxxxxxxxx atau +628xxxxxxxxxx.",
-      );
       return;
     }
 
@@ -128,32 +139,43 @@ export default function RegisterScreen() {
       return;
     }
 
-    try {
-      setLoading(true);
-      await register({
-        fullName: fullName.trim(),
-        email: email.trim(),
-        password,
-        phoneNumber: normalizedPhoneNumber,
-      });
-
-      router.replace({
-        pathname: "/(auth)/account-setup",
-        params: {
-          fullName: fullName.trim(),
-          email: email.trim(),
-          phoneNumber: normalizedPhoneNumber,
-          redirectTo,
-          reason,
-        },
-      });
-    } catch (error: unknown) {
-      const message = extractApiErrorMessage(error);
-      Alert.alert("Registrasi Gagal", message);
-    } finally {
-      setLoading(false);
-    }
+    await mergePendingRegistration({ password });
+    router.push({
+      pathname: "/(auth)/account-setup",
+      params: {
+        email: normalizedEmail,
+        redirectTo,
+        reason,
+      },
+    });
   };
+
+  const stepMeta = {
+    email: {
+      title: "Daftar Marketplace",
+      subtitle:
+        "Masukkan email aktif terlebih dahulu. Kami akan mengirim OTP untuk memastikan email ini milik Anda.",
+      button: "Kirim OTP",
+      icon: "mail-outline" as const,
+      action: requestOtp,
+    },
+    otp: {
+      title: "Verifikasi Email",
+      subtitle:
+        "Masukkan kode 6 digit yang dikirim ke email Anda untuk melanjutkan pembuatan akun.",
+      button: "Verifikasi OTP",
+      icon: "shield-checkmark-outline" as const,
+      action: verifyOtp,
+    },
+    password: {
+      title: "Buat Password",
+      subtitle:
+        "Gunakan password yang kuat sebelum lanjut mengisi profil marketplace Anda.",
+      button: "Lanjut Isi Profil",
+      icon: "lock-closed-outline" as const,
+      action: savePasswordAndContinue,
+    },
+  }[step];
 
   return (
     <KeyboardAvoidingView
@@ -174,96 +196,112 @@ export default function RegisterScreen() {
           <TouchableOpacity
             activeOpacity={0.82}
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => (step === "email" ? router.back() : setStep("email"))}
           >
             <Ionicons name="arrow-back" size={22} color={Colors.text} />
           </TouchableOpacity>
 
           <View style={styles.logoCircle}>
-            <Ionicons name="car-sport" size={28} color={Colors.white} />
+            <Ionicons name={stepMeta.icon} size={28} color={Colors.white} />
           </View>
 
-          <Text style={styles.title}>Create Your Account</Text>
-          <Text style={styles.subtitle}>
-            Daftar dengan gaya baru Mediator dan lanjutkan ke setup profil.
-          </Text>
+          <Text style={styles.title}>{stepMeta.title}</Text>
+          <Text style={styles.subtitle}>{stepMeta.subtitle}</Text>
+
+          <View style={styles.progressRow}>
+            {(["email", "otp", "password"] as RegisterStep[]).map((item) => (
+              <View
+                key={item}
+                style={[
+                  styles.progressDot,
+                  item === step && styles.progressDotActive,
+                ]}
+              />
+            ))}
+          </View>
 
           <View style={styles.form}>
-            <AuthInputField
-              label="Nama Lengkap"
-              icon="person-outline"
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Nama lengkap Anda"
-              autoCapitalize="words"
-              autoComplete="name"
-            />
-            <AuthInputField
-              label="Email"
-              icon="mail-outline"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="nama@email.com"
-              keyboardType="email-address"
-              autoComplete="email"
-            />
-            <AuthInputField
-              label="Nomor Telepon"
-              icon="call-outline"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              placeholder="08xxxxxxxxxx "
-              keyboardType="phone-pad"
-              autoComplete="tel"
-            />
-            <AuthInputField
-              label="Password"
-              icon="lock-closed-outline"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Minimal 8 karakter, huruf besar, kecil, angka"
-              secureTextEntry={!showPassword}
-              onToggleSecure={() => setShowPassword((prev) => !prev)}
-              autoComplete="new-password"
-            />
-            <AuthInputField
-              label="Konfirmasi Password"
-              icon="shield-checkmark-outline"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Ulangi password"
-              secureTextEntry={!showPassword}
-              onToggleSecure={() => setShowPassword((prev) => !prev)}
-            />
+            {step === "email" ? (
+              <AuthInputField
+                label="Email"
+                icon="mail-outline"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="nama@email.com"
+                keyboardType="email-address"
+                autoComplete="email"
+              />
+            ) : null}
 
-            <AuthCheckbox
-              checked={rememberMe}
-              onPress={() => setRememberMe((prev) => !prev)}
-              label="Remember me"
-            />
+            {step === "otp" ? (
+              <>
+                <AuthInputField
+                  label="Kode OTP"
+                  icon="keypad-outline"
+                  value={otp}
+                  onChangeText={(value) =>
+                    setOtp(value.replace(/[^0-9]/g, "").slice(0, 6))
+                  }
+                  placeholder="6 digit OTP"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+                <TouchableOpacity onPress={requestOtp} disabled={loading}>
+                  <Text style={styles.resendText}>Kirim ulang OTP</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
+
+            {step === "password" ? (
+              <>
+                <AuthInputField
+                  label="Password"
+                  icon="lock-closed-outline"
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Minimal 8 karakter, huruf besar, kecil, angka"
+                  secureTextEntry={!showPassword}
+                  onToggleSecure={() => setShowPassword((prev) => !prev)}
+                  autoComplete="new-password"
+                />
+                <AuthInputField
+                  label="Konfirmasi Password"
+                  icon="shield-checkmark-outline"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Ulangi password"
+                  secureTextEntry={!showPassword}
+                  onToggleSecure={() => setShowPassword((prev) => !prev)}
+                />
+              </>
+            ) : null}
 
             <AuthActionButton
-              label="Daftar"
-              icon="person-add-outline"
+              label={stepMeta.button}
+              icon={stepMeta.icon}
               loading={loading}
-              onPress={handleRegister}
+              onPress={stepMeta.action}
               variant="dark"
             />
 
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>atau lanjut dengan</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {step === "email" ? (
+              <>
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>atau lanjut dengan</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-            <AuthSocialButtons onPress={handleSocialPress} />
+                <AuthSocialButtons onPress={handleSocialPress} />
 
-            <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Sudah punya akun?</Text>
-              <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
-                <Text style={styles.footerLink}>Masuk</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.footerRow}>
+                  <Text style={styles.footerText}>Sudah punya akun?</Text>
+                  <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
+                    <Text style={styles.footerLink}>Masuk</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : null}
           </View>
         </View>
       </ScrollView>
@@ -303,7 +341,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: Colors.text,
     textAlign: "center",
-    letterSpacing: -0.8,
   },
   subtitle: {
     marginTop: 10,
@@ -312,9 +349,30 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: "center",
   },
+  progressRow: {
+    marginTop: 22,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+  },
+  progressDot: {
+    width: 28,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.borderLight,
+  },
+  progressDotActive: {
+    backgroundColor: Colors.primary,
+  },
   form: {
     marginTop: 28,
     gap: 16,
+  },
+  resendText: {
+    alignSelf: "flex-end",
+    fontSize: 13,
+    fontWeight: "800",
+    color: Colors.primary,
   },
   dividerRow: {
     flexDirection: "row",

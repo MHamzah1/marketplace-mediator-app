@@ -65,10 +65,16 @@ export interface User {
   id: string;
   email: string;
   fullName: string;
+  nickName?: string;
   phoneNumber?: string;
   whatsappNumber?: string;
   location?: string;
   profileImage?: string;
+  profilePhoto?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  pinEnabled?: boolean;
+  biometricEnabled?: boolean;
   role?: string;
   rolePosition?: {
     id: string;
