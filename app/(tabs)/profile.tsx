@@ -8,6 +8,7 @@ import {
   Alert,
   Switch,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import Colors, { Shadows } from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { requireAuth } from '@/lib/auth/requireAuth';
+import { resolveImageUrl } from '@/lib/utils';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -32,6 +34,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, isLoggedIn, logout } = useAuth();
   const { isDark, toggle: toggleTheme } = useTheme();
+  const profilePhotoUri = resolveImageUrl(user?.profilePhoto || user?.profileImage);
 
   const handleLogout = () => {
     Alert.alert('Keluar', 'Apakah Anda yakin ingin keluar?', [
@@ -50,6 +53,24 @@ export default function ProfileScreen() {
     {
       title: 'Akun',
       items: [
+        {
+          icon: 'person-circle-outline',
+          label: 'Edit Profil',
+          subtitle: 'Ubah data akun Anda',
+          color: Colors.primary,
+          onPress: () => {
+            if (
+              !requireAuth(router, isLoggedIn, {
+                redirectTo: '/edit-profile',
+                reason: 'protected',
+                message: 'Masuk dulu untuk mengubah profil Anda.',
+              })
+            ) {
+              return;
+            }
+            router.push('/edit-profile');
+          },
+        },
         {
           icon: 'car-outline',
           label: 'Listing Saya',
@@ -138,9 +159,17 @@ export default function ProfileScreen() {
             <View style={styles.profileInfo}>
               <View style={styles.avatarContainer}>
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {user.fullName?.charAt(0).toUpperCase() || 'U'}
-                  </Text>
+                  {profilePhotoUri ? (
+                    <Image
+                      source={{ uri: profilePhotoUri }}
+                      style={styles.avatarImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <Text style={styles.avatarText}>
+                      {user.fullName?.charAt(0).toUpperCase() || 'U'}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.onlineDot} />
               </View>
@@ -319,6 +348,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.3)',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
     fontSize: 32,

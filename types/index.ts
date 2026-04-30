@@ -69,6 +69,13 @@ export interface User {
   phoneNumber?: string;
   whatsappNumber?: string;
   location?: string;
+  bio?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  instagram?: string;
+  facebook?: string;
+  website?: string;
   profileImage?: string;
   profilePhoto?: string;
   dateOfBirth?: string;
